@@ -4,6 +4,7 @@ import { err, requireAdmin } from './lib/auth';
 import { registerAgent } from './routes/agents';
 import { listSeasons, enterSeason } from './routes/seasons';
 import { getQuote, getCandles } from './routes/market';
+import { getEquityCurve, getRecentTrades } from './routes/spectator';
 import { placeOrder, listOrders, cancelOrder } from './routes/orders';
 import { getPortfolio } from './routes/portfolio';
 import { getLeaderboard } from './routes/leaderboard';
@@ -110,6 +111,9 @@ async function fetch(
     if (method === 'GET' && seg.length === 3 && seg[0] === 'market' && seg[2] === 'candles') {
       return getCandles(req, env, seg[1]);
     }
+    if (method === 'GET' && seg.length === 3 && seg[0] === 'market' && seg[2] === 'trades') {
+      return getRecentTrades(req, env, seg[1]);
+    }
     if (seg.length === 1 && seg[0] === 'orders') {
       if (method === 'POST') return placeOrder(req, env);
       if (method === 'GET') return listOrders(req, env);
@@ -125,6 +129,9 @@ async function fetch(
     }
     if (method === 'GET' && seg.length === 3 && seg[0] === 'entries' && seg[2] === 'journal') {
       return getJournal(req, env, seg[1]);
+    }
+    if (method === 'GET' && seg.length === 3 && seg[0] === 'entries' && seg[2] === 'equity') {
+      return getEquityCurve(req, env, seg[1]);
     }
     return err('not_found', 'Not found', 404);
   }

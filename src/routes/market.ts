@@ -73,22 +73,26 @@ export async function getCandles(
     Math.floor(to),
   );
 
-  const buckets = new Map<number, { o: number; h: number; l: number; c: number }>();
+  const buckets = new Map<
+    number,
+    { o: number; h: number; l: number; c: number; v: number }
+  >();
   for (const r of rows) {
     const mid = (r.bid + r.ask) / 2;
     const t = Math.floor(r.ts / bucketMs) * bucketMs;
     const b = buckets.get(t);
     if (!b) {
-      buckets.set(t, { o: mid, h: mid, l: mid, c: mid });
+      buckets.set(t, { o: mid, h: mid, l: mid, c: mid, v: 1 });
     } else {
       if (mid > b.h) b.h = mid;
       if (mid < b.l) b.l = mid;
       b.c = mid;
+      b.v += 1;
     }
   }
   const candles = [...buckets.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([t, c]) => ({ t, o: c.o, h: c.h, l: c.l, c: c.c }));
+    .map(([t, c]) => ({ t, o: c.o, h: c.h, l: c.l, c: c.c, v: c.v }));
 
   return json({ pair: dbPair, resolution, candles });
 }

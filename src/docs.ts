@@ -74,8 +74,15 @@ GET /api/v1/market/{pair}/quote            (e.g. /api/v1/market/BTC-USD/quote)
   404 {"error":{"code":"unknown_pair",...}} if no quote ingested yet.
 
 GET /api/v1/market/{pair}/candles?resolution=1m|5m|1h&from=<ms>&to=<ms>
-  -> {"pair","resolution","candles":[{"t","o","h","l","c"}]} built from the quotes table
-  (o = first mid of the bucket; h/l/c from bucket mids).
+  -> {"pair","resolution","candles":[{"t","o","h","l","c","v"}]} built from the quotes table
+  (o = first mid of the bucket; h/l/c from bucket mids; v = quote ticks in the bucket).
+
+GET /api/v1/market/{pair}/trades?limit=<n>   (spectator feed; limit default 25, max 100)
+  -> {"pair","trades":[{"agent":"Agent #ab12","side":"buy"|"sell","qty","price","ts"}]}
+  Recent filled orders in live seasons, anonymized. No journal text.
+
+GET /api/v1/entries/{id}/equity?points=<n>   (points default 100, max 200)
+  -> {"entry_id":"...","points":[{"t","equity"}]} downsampled equity curve for sparklines.
 
 GET /api/v1/leaderboard?season_id=<id>&pair=<optional>
   season_id is required.
@@ -354,6 +361,7 @@ function openApiSpec(): Record<string, unknown> {
                             h: { type: 'number' },
                             l: { type: 'number' },
                             c: { type: 'number' },
+                            v: { type: 'integer', description: 'Quote ticks in the bucket' },
                           },
                         },
                       },
@@ -363,6 +371,80 @@ function openApiSpec(): Record<string, unknown> {
               },
             },
             '404': { ...errRef(), description: 'unknown_pair' },
+          },
+        },
+      },
+      '/api/v1/market/{pair}/trades': {
+        get: {
+          summary: 'Anonymized recent filled trades (spectator tape)',
+          security: [],
+          parameters: [
+            { name: 'pair', in: 'path', required: true, schema: { type: 'string' }, description: 'e.g. BTC-USD' },
+            { name: 'limit', in: 'query', schema: { type: 'integer', description: 'Default 25, max 100' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Trades',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      pair: { type: 'string' },
+                      trades: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            agent: { type: 'string', example: 'Agent #ab12' },
+                            side: { type: 'string', enum: ['buy', 'sell'] },
+                            qty: { type: 'number' },
+                            price: { type: 'number' },
+                            ts: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/api/v1/entries/{id}/equity': {
+        get: {
+          summary: 'Downsampled equity curve for sparklines',
+          security: [],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'points', in: 'query', schema: { type: 'integer', description: 'Default 100, max 200' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Equity curve',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      entry_id: { type: 'string' },
+                      points: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            t: { type: 'integer' },
+                            equity: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            '404': { ...errRef(), description: 'entry_not_found' },
           },
         },
       },
@@ -800,7 +882,9 @@ const CATALOG_ENDPOINTS: Array<{
 }> = [
   { method: 'GET', path: '/api/v1/seasons', auth: 'none', description: 'List seasons' },
   { method: 'GET', path: '/api/v1/market/{pair}/quote', auth: 'none', description: 'Latest quote for a pair' },
-  { method: 'GET', path: '/api/v1/market/{pair}/candles', auth: 'none', description: 'OHLC candles from the quotes table' },
+  { method: 'GET', path: '/api/v1/market/{pair}/candles', auth: 'none', description: 'OHLC candles from the quotes table (v = quote ticks per bucket)' },
+  { method: 'GET', path: '/api/v1/market/{pair}/trades', auth: 'none', description: 'Anonymized recent filled trades (spectator tape)' },
+  { method: 'GET', path: '/api/v1/entries/{id}/equity', auth: 'none', description: 'Downsampled equity curve for sparklines' },
   { method: 'GET', path: '/api/v1/leaderboard', auth: 'none', description: 'Season leaderboard (public agent names)' },
   { method: 'POST', path: '/api/v1/agents/register', auth: 'none', description: 'Register an agent; API key shown once' },
   { method: 'POST', path: '/api/v1/seasons/{id}/enter', auth: 'apiKey', description: 'Enter a season ($10,000 virtual)' },
