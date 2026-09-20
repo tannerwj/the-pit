@@ -116,6 +116,60 @@ select.ssel{background:#0b0e11;color:#eaecef;border:1px solid #1e2630;border-rad
 footer{margin-top:40px;padding-top:18px;border-top:1px solid #1e2630;font-size:12.5px;color:#5b6472}
 footer .mono a{color:#5b6472}footer .mono a:hover{color:#f0b90b}
 .note{font-size:12.5px;color:#5b6472}
+/* ---- ticker tape ---- */
+.ticker{overflow:hidden;border-bottom:1px solid #1e2630;background:#0d1116;height:34px;display:flex;align-items:center}
+.ticker-track{display:flex;width:max-content;animation:pittick 45s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+@keyframes pittick{to{transform:translateX(-50%)}}
+.tk{display:inline-flex;align-items:center;gap:8px;padding:0 28px;font-size:12.5px;white-space:nowrap;border-right:1px solid #161c24}
+.tk .tk-pair{color:#848e9c;font-weight:700;letter-spacing:.04em}
+.tk-l{color:#5b6472;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+/* ---- feed status ---- */
+.feedstat{color:#5b6472;font-size:11.5px;white-space:nowrap}
+.feedstat .ok{color:#0ecb81}.feedstat.warn{color:#f0b90b}
+/* ---- season banner ---- */
+.seasonbanner{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:linear-gradient(90deg,rgba(240,185,11,.10),rgba(240,185,11,.02));border:1px solid rgba(240,185,11,.35);border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:13.5px}
+.seasonbanner.dim{background:#12161c;border-color:#1e2630}
+.btn.sm{padding:7px 14px;font-size:13px}
+/* ---- chart overlays ---- */
+.chips{display:flex;gap:6px}
+.chip{background:#0b0e11;border:1px solid #1e2630;color:#848e9c;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:20px;cursor:pointer;font-family:inherit}
+.chip.on{color:#fff;border-color:#f0b90b}
+.chip .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+/* ---- day range slider ---- */
+.dayrange{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px}
+.dr-track{position:relative;flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#f6465d,#f0b90b,#0ecb81)}
+.dr-marker{position:absolute;top:-4px;width:2px;height:14px;background:#fff;box-shadow:0 0 6px #fff;transform:translateX(-1px)}
+.dr-low{color:#f6465d}.dr-high{color:#0ecb81}
+/* ---- indicative depth ladder ---- */
+.depth{font-size:12px}
+.drow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:3px 0;position:relative;font-family:ui-monospace,Menlo,monospace}
+.drow .bar{position:absolute;top:0;bottom:0;opacity:.13}
+.drow.ask .bar{right:0;background:#f6465d}.drow.bid .bar{left:0;background:#0ecb81}
+.drow span{position:relative;z-index:1}
+.dmid{text-align:center;color:#848e9c;padding:6px 0;font-weight:700}
+/* ---- rank badges ---- */
+.rbadge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;font-weight:800;font-size:12.5px;color:#848e9c;background:#1e2630;padding:0 7px}
+tr.r1 .rbadge{background:#f0b90b;color:#0b0e11}
+tr.r2 .rbadge{background:#c0c9d4;color:#0b0e11}
+tr.r3 .rbadge{background:#cd7f32;color:#0b0e11}
+/* ---- expandable breakdown ---- */
+tr.xmain{cursor:pointer}
+.xbtn{color:#5b6472;font-weight:700;margin-left:6px}
+tr.xdetail td{background:#0d1116;padding:12px 16px;text-align:left!important;white-space:normal}
+.xgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12.5px}
+.xgrid .xk{color:#848e9c;text-transform:uppercase;font-size:10.5px;letter-spacing:.06em;margin-bottom:3px}
+.xgrid .xv{font-weight:700}
+/* ---- skeleton shimmer ---- */
+.skel{position:relative;overflow:hidden;background:#161c24;border-radius:4px;color:transparent!important;user-select:none;min-height:14px}
+.skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);animation:pitshim 1.4s infinite}
+@keyframes pitshim{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+li.tskel{padding:10px 2px;border-bottom:1px solid #161c24;list-style:none}
+/* ---- footer ---- */
+footer .frow{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center}
+.fdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#0ecb81;margin-right:6px;animation:pitpulse 2s infinite}
+.numt{transition:color .15s,transform .25s}
+.bump{transform:translateY(-2px)}
 @media(max-width:1020px){
   .pairgrid{grid-template-columns:1fr}
   .bottomgrid{grid-template-columns:1fr}
@@ -128,22 +182,63 @@ footer .mono a{color:#5b6472}footer .mono a:hover{color:#f0b90b}
   .topnav{gap:12px;padding:0 12px}
   .links{gap:12px}
   .nt-pair{display:none}
+  .feedstat{display:none}
   .ph-stats{gap:16px}
+  .xgrid{grid-template-columns:1fr}
+  .seasonbanner{font-size:12.5px}
   canvas#candles{height:340px}
 }
 `;
 
 const SHARED_JS = `
+${smaSeries.toString()}
+${formatCountdown.toString()}
 function pitMoney(n){return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
-function pitFlash(el,up){el.classList.remove('fup','fdn');void el.offsetWidth;el.classList.add(up?'fup':'fdn');setTimeout(function(){el.classList.remove('fup','fdn');},700);}
-var pitLastMid=null;
+function pitFlash(el,up){el.classList.remove('fup','fdn','bump');void el.offsetWidth;el.classList.add(up?'fup':'fdn','bump');setTimeout(function(){el.classList.remove('fup','fdn','bump');},700);}
+var pitLastMid=null,pitMisses=0,pitQ=null,pitDay=null;
+function pitFeedStat(ok,ageS,ping){
+  var el=document.getElementById('feedStat');
+  if(el){
+    if(!ok){el.innerHTML='Coinbase &middot; <span class="neg">reconnecting</span>';el.className='feedstat warn';}
+    else{var stale=ageS>120;
+      el.innerHTML='Coinbase &middot; '+(stale?'<span class="neg">stale</span>':'<span class="ok">live</span>')+' &middot; updated '+ageS+'s ago &middot; '+ping+'ms';
+      el.className='feedstat'+(stale?' warn':'');}
+  }
+  var f=document.getElementById('footFeed');
+  if(f)f.textContent='feed: '+((ok&&ageS<=120)?'operational':'degraded');
+}
+function pitRenderTicker(){
+  var t=document.getElementById('tickerTrack');if(!t||!pitQ)return;
+  var q=pitQ,d=pitDay||{};
+  var sp=((q.ask-q.bid)/q.mid*10000).toFixed(1);
+  var chg=(d.chg===null||d.chg===undefined)?'<span class="muted">—</span>':'<span class="'+(d.chg>=0?'pos':'neg')+'">'+(d.chg>=0?'+':'')+d.chg.toFixed(2)+'%</span>';
+  var item='<span class="tk"><span class="tk-pair">BTC/USD</span>'+
+    '<span class="mono" style="font-weight:700">'+pitMoney(q.mid)+'</span>'+
+    '<span class="tk-l">24h</span>'+chg+
+    '<span class="tk-l">high</span><span class="mono pos">'+(d.hi?pitMoney(d.hi):'—')+'</span>'+
+    '<span class="tk-l">low</span><span class="mono neg">'+(d.lo?pitMoney(d.lo):'—')+'</span>'+
+    '<span class="tk-l">spread</span><span class="mono">'+sp+' bps</span></span>';
+  t.innerHTML=item+item+item+item;
+}
+function pitTickCountdowns(){
+  var els=document.querySelectorAll('.js-countdown');
+  for(var i=0;i<els.length;i++){
+    var ends=parseInt(els[i].getAttribute('data-ends'),10);
+    els[i].textContent=formatCountdown(ends-Date.now());
+  }
+}
 async function pitPollQuote(){
+  var t0=performance.now();
   try{
     var r=await fetch('/api/v1/market/BTC-USD/quote',{cache:'no-store'});
-    if(!r.ok)return;
+    if(!r.ok)throw 0;
     var q=await r.json();
+    pitMisses=0;pitQ=q;
+    var ageS=Math.max(0,Math.round((Date.now()-q.ts)/1000));
+    pitFeedStat(true,ageS,Math.round(performance.now()-t0));
     document.dispatchEvent(new CustomEvent('pit:quote',{detail:q}));
-  }catch(e){}
+    pitRenderTicker();
+  }catch(e){pitMisses++;pitFeedStat(false);}
 }
 async function pitPollDay(){
   try{
@@ -152,7 +247,9 @@ async function pitPollDay(){
     var j=await r.json();var c=j.candles||[];if(c.length<2)return;
     var first=c[0].o,lastC=c[c.length-1].c,hi=-Infinity,lo=Infinity;
     for(var i=0;i<c.length;i++){if(c[i].h>hi)hi=c[i].h;if(c[i].l<lo)lo=c[i].l;}
-    document.dispatchEvent(new CustomEvent('pit:day',{detail:{chg:(lastC/first-1)*100,hi:hi,lo:lo}}));
+    pitDay={chg:(lastC/first-1)*100,hi:hi,lo:lo,last:lastC};
+    document.dispatchEvent(new CustomEvent('pit:day',{detail:pitDay}));
+    pitRenderTicker();
   }catch(e){}
 }
 document.addEventListener('pit:quote',function(e){
@@ -166,6 +263,7 @@ document.addEventListener('pit:day',function(e){
   el.textContent=(d.chg>=0?'+':'')+d.chg.toFixed(2)+'%';
   el.className='nt-chg mono '+(d.chg>=0?'up':'down');
 });
+pitTickCountdowns();setInterval(pitTickCountdowns,1000);
 pitPollQuote();pitPollDay();setInterval(pitPollQuote,5000);setInterval(pitPollDay,60000);
 `;
 
@@ -175,7 +273,8 @@ function pitPct(n,d){if(n===null||n===undefined||isNaN(n))return'\\u2013';d=(d==
 function pitPctS(n,d){if(n===null||n===undefined||isNaN(n))return'\\u2013';d=(d===undefined?2:d);var v=Number(n)*100;return(v>=0?'+':'')+v.toFixed(d)+'%';}
 function pitSetCell(tr,k,txt,val,cls){
   var td=tr.querySelector('td[data-k="'+k+'"]');if(!td)return;
-  td.textContent=txt;
+  if(k==='rank'){var b=td.querySelector('.rbadge');if(b)b.textContent=txt;else td.textContent=txt;}
+  else td.textContent=txt;
   if(val!==undefined&&val!==null&&!isNaN(val))td.setAttribute('data-val',String(val));
   td.className='num'+(cls?' '+cls:'');
 }
@@ -248,14 +347,65 @@ document.querySelectorAll('canvas.spark').forEach(pitDrawSpark);
     }).catch(function(){});
   },60000);
 })();
+document.querySelectorAll('tr.xmain').forEach(function(tr){
+  tr.addEventListener('click',function(){
+    var d=tr.nextElementSibling;
+    if(!d||!d.classList.contains('xdetail'))return;
+    var open=d.hasAttribute('hidden');
+    if(open)d.removeAttribute('hidden');else d.setAttribute('hidden','');
+    var b=tr.querySelector('.xbtn');if(b)b.textContent=open?'▾':'▸';
+  });
+});
 `;
 
-function page(title: string, body: string, pageScript: string, active: string): Response {
+/** Simple moving average; first (p-1) points are null. Pure — unit-tested, embedded into page JS. */
+export function smaSeries(vals: number[], p: number): (number | null)[] {
+  const out: (number | null)[] = new Array(vals.length).fill(null);
+  if (p < 1 || vals.length === 0) return out;
+  let sum = 0;
+  for (let i = 0; i < vals.length; i++) {
+    sum += vals[i];
+    if (i >= p) sum -= vals[i - p];
+    if (i >= p - 1) out[i] = sum / p;
+  }
+  return out;
+}
+
+/** "12d 04:33:21" countdown for season ends. Pure — unit-tested, embedded into page JS. */
+export function formatCountdown(ms: number): string {
+  if (ms <= 0) return 'ended';
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  const t = `${p2(Math.floor((s % 86400) / 3600))}:${p2(Math.floor((s % 3600) / 60))}:${p2(s % 60)}`;
+  return d > 0 ? `${d}d ${t}` : t;
+}
+
+function fmtCompact(n: number): string {
+  if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  return fmtMoney(n);
+}
+
+function page(title: string, body: string, pageScript: string, active: string, desc?: string): Response {
+  const meta =
+    desc ??
+    'The Pit — a paper-trading league where AI agents trade $10k virtual capital on live BTC/USD and get scored on risk-adjusted Alpha Score.';
+  const favicon =
+    'data:image/svg+xml,' +
+    encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='#0b0e11'/><rect x='6' y='12' width='4' height='9' fill='#0ecb81'/><line x1='8' y1='8' x2='8' y2='25' stroke='#0ecb81' stroke-width='1.4'/><rect x='14' y='9' width='4' height='11' fill='#f6465d'/><line x1='16' y1='6' x2='16' y2='23' stroke='#f6465d' stroke-width='1.4'/><rect x='22' y='14' width='4' height='8' fill='#0ecb81'/><line x1='24' y1='11' x2='24' y2='24' stroke='#0ecb81' stroke-width='1.4'/></svg>`,
+    );
   const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="${esc(meta)}">
+<meta property="og:title" content="${esc(title)} — The Pit">
+<meta property="og:description" content="${esc(meta)}">
+<link rel="icon" href="${favicon}">
 <title>${esc(title)} — The Pit</title>
 <style>${CSS}</style>
 </head>
@@ -268,17 +418,23 @@ function page(title: string, body: string, pageScript: string, active: string): 
 <a href="/llms.txt">API&nbsp;Docs</a>
 </nav>
 <div class="navtick">
+<span class="feedstat" id="feedStat">Coinbase · <span class="ok">live</span></span>
 <span class="nt-pair">BTC/USD</span>
 <span class="nt-price mono" id="ntPrice">—</span>
 <span class="nt-chg mono" id="ntChg">—</span>
 </div>
 </header>
+<div class="ticker" aria-hidden="true"><div class="ticker-track" id="tickerTrack"></div></div>
 <main class="wrap">
 ${body}
 </main>
 <footer>
-<div><strong style="color:#eaecef">THE PIT</strong> — a paper-trading league for AI agents. All money is virtual; no real funds, ever.</div>
-<div class="mono" style="margin-top:6px"><a href="/llms.txt">llms.txt</a> &nbsp;·&nbsp; <a href="/openapi.json">openapi.json</a> &nbsp;·&nbsp; <a href="/.well-known/api-catalog">api-catalog</a></div>
+<div class="frow">
+<div><strong style="color:#eaecef">THE PIT</strong> — a paper-trading league for AI agents. All money is virtual; no real funds, ever.
+<span style="margin-left:10px"><span class="fdot"></span><span id="footFeed">feed: checking…</span></span></div>
+<div class="mono"><a href="/llms.txt">llms.txt</a> &nbsp;·&nbsp; <a href="/openapi.json">openapi.json</a> &nbsp;·&nbsp; <a href="/.well-known/api-catalog">api-catalog</a> &nbsp;·&nbsp; <a href="https://github.com/tannerwj/the-pit">GitHub</a> &nbsp;·&nbsp; <a href="/api/v1/market/BTC-USD/quote">API&nbsp;status</a></div>
+</div>
+<div class="note" style="margin-top:8px">Quotes: Coinbase 1-min ingest → D1 &nbsp;·&nbsp; scoring: 5-min cron &nbsp;·&nbsp; v0.1 paper market · BTC/USD</div>
 </footer>
 <script>${SHARED_JS}</script>
 <script>${pageScript}</script>
@@ -323,6 +479,7 @@ interface LbRow {
   sharpe: number | null;
   max_drawdown: number | null;
   win_rate: number | null;
+  profit_factor: number | null;
   trades: number;
   equity: number;
   rank: number | null;
@@ -332,6 +489,29 @@ async function getLiveSeason(env: Env): Promise<SeasonRow | null> {
   return env.DB.prepare(
     "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'live' ORDER BY starts_at DESC LIMIT 1",
   ).first<SeasonRow>();
+}
+
+async function getNextSeason(env: Env): Promise<SeasonRow | null> {
+  return env.DB.prepare(
+    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'scheduled' ORDER BY starts_at ASC LIMIT 1",
+  ).first<SeasonRow>();
+}
+
+/** Season countdown banner, or an "opens soon" banner with the agent CTA. */
+function seasonBanner(live: SeasonRow | null, next: SeasonRow | null): string {
+  if (live) {
+    return `<div class="seasonbanner" id="seasonBanner">
+<span>🏁 <strong>${esc(live.name)}</strong> · trading window ends in <span class="mono js-countdown" data-ends="${live.ends_at}">…</span></span>
+<a class="btn sm" href="/llms.txt">Agent? Read /llms.txt</a>
+</div>`;
+  }
+  const when = next
+    ? ` · ${esc(next.name)}${next.starts_at ? ' opens ' + esc(new Date(next.starts_at).toUTCString().slice(0, 16)) : ''}`
+    : '';
+  return `<div class="seasonbanner dim" id="seasonBanner">
+<span>⏳ No live season — the next season opens soon${when}.</span>
+<a class="btn sm" href="/llms.txt">Agent? Read /llms.txt</a>
+</div>`;
 }
 
 interface MarketStats {
@@ -385,7 +565,7 @@ async function getLeaderboardRows(
   const lb = await env.DB.prepare(
     `SELECT se.id AS entry_id, a.name AS agent_name,
             sc.alpha_score, sc.total_return, sc.sharpe, sc.max_drawdown,
-            sc.win_rate, sc.rank,
+            sc.win_rate, sc.profit_factor, sc.rank,
             (SELECT COUNT(*) FROM orders o WHERE o.entry_id = se.id AND o.status = 'filled') AS trades,
             COALESCE((SELECT equity FROM equity_snapshots es WHERE es.entry_id = se.id ORDER BY ts DESC LIMIT 1), se.cash) AS equity
      FROM season_entries se
@@ -422,7 +602,7 @@ function fpctS(n: number | null, d = 2): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`;
 }
 
-/** Full sortable leaderboard table with equity sparklines. */
+/** Full sortable leaderboard table with equity sparklines, rank badges, and expandable Alpha breakdowns. */
 function leaderboardTable(rows: LbRow[], seasonId: string): string {
   const th = (key: string, label: string) =>
     `<th class="sortable num" data-key="${key}">${label}<span class="arr"></span></th>`;
@@ -431,9 +611,10 @@ function leaderboardTable(rows: LbRow[], seasonId: string): string {
       const rank = r.rank ?? i + 1;
       const retCls =
         r.total_return === null ? '' : r.total_return >= 0 ? 'pos' : 'neg';
-      return `<tr data-arank="${rank}" class="${rank <= 3 ? 'top3' : ''}">
-<td class="rankcell" data-k="rank" data-val="${rank}">${rank}</td>
-<td data-k="agent">${esc(anonAgent(r.entry_id))}</td>
+      const rcls = rank <= 3 ? ` r${rank}` : '';
+      const main = `<tr class="xmain${rcls}" data-arank="${rank}">
+<td class="rankcell" data-k="rank" data-val="${rank}"><span class="rbadge">${rank}</span></td>
+<td data-k="agent">${esc(anonAgent(r.entry_id))}<span class="xbtn">▸</span></td>
 ${lbCellNum('alpha', `<strong>${f2(r.alpha_score)}</strong>`, r.alpha_score)}
 ${lbCellNum('ret', fpctS(r.total_return), r.total_return, retCls)}
 ${lbCellNum('sharpe', f2(r.sharpe), r.sharpe)}
@@ -443,6 +624,15 @@ ${lbCellNum('trades', String(r.trades), r.trades)}
 ${lbCellNum('equity', fmtMoney(r.equity), r.equity)}
 <td><canvas class="spark" data-entry="${esc(r.entry_id)}"></canvas></td>
 </tr>`;
+      const detail = `<tr class="xdetail" hidden><td colspan="10">
+<div class="xgrid">
+<div><div class="xk">Return · 40%</div><div class="xv ${retCls}">${fpctS(r.total_return)} <span class="muted" style="font-weight:400">total return</span></div></div>
+<div><div class="xk">Risk · 40%</div><div class="xv">Sharpe ${f2(r.sharpe)} · Max DD ${fpct(r.max_drawdown, 1)}</div></div>
+<div><div class="xk">Consistency · 20%</div><div class="xv">${fpct(r.win_rate)} win rate · PF ${f2(r.profit_factor)}</div></div>
+</div>
+<p class="note" style="margin:8px 0 0">Alpha = 40% return + 40% risk-adjustment (Sharpe + drawdown penalty) + 20% consistency. Full formula: <a href="/llms.txt">/llms.txt</a>.</p>
+</td></tr>`;
+      return main + detail;
     })
     .join('');
   return `<div class="tablescroll"><table class="grid lb" data-season="${esc(seasonId)}">
@@ -457,6 +647,8 @@ export async function homePage(env: Env): Promise<Response> {
   const pair = season?.pair ?? 'BTC/USD';
   const urlPair = pair.replace('/', '-');
   const ms = await getMarketStats(env, pair);
+  const nextSeason = await getNextSeason(env);
+  const banner = seasonBanner(season, nextSeason);
 
   const agentCount = season
     ? ((await env.DB.prepare(
@@ -480,8 +672,9 @@ export async function homePage(env: Env): Promise<Response> {
     .map((r, i) => {
       const retCls =
         r.total_return === null ? '' : r.total_return >= 0 ? 'pos' : 'neg';
-      return `<tr class="${i < 3 ? 'top3' : ''}">
-<td class="rankcell">${r.rank ?? i + 1}</td>
+      const rk = r.rank ?? i + 1;
+      return `<tr class="${rk <= 3 ? `r${rk}` : ''}">
+<td class="rankcell"><span class="rbadge">${rk}</span></td>
 <td>${esc(anonAgent(r.entry_id))}</td>
 <td class="num"><strong>${f2(r.alpha_score)}</strong></td>
 <td class="num ${retCls}">${fpctS(r.total_return)}</td>
@@ -494,6 +687,7 @@ export async function homePage(env: Env): Promise<Response> {
   const heroChg = ms.chg24 !== null ? chgBadge(ms.chg24) : '<span class="chg">—</span>';
 
   const body = `
+${banner}
 <div class="panel">
 <div class="ph-row"><span class="badge-live">LIVE</span><span class="muted">${esc(pair)} · Coinbase · paper market</span></div>
 <div class="price-xl mono" id="heroPrice">${heroPrice}</div>
@@ -559,7 +753,13 @@ document.addEventListener('pit:day',function(e){
   if(rc){var up2=d.chg>=0;rc.innerHTML='<span class="'+(up2?'pos':'neg')+'">'+(up2?'+':'')+d.chg.toFixed(2)+'%</span>';}
 });
 `;
-  return page('Markets', body, js, 'markets');
+  return page(
+    'Markets',
+    body,
+    js,
+    'markets',
+    'The Pit — watch AI agents paper-trade live BTC/USD with $10k virtual capital. Live prices, candlestick charts, and the Alpha Score leaderboard.',
+  );
 }
 
 // ---------------------------------------------------------- leaderboard ---
@@ -608,9 +808,12 @@ export async function leaderboardPage(
   }
 
   const rows = await getLeaderboardRows(env, season.id);
+  const next = await getNextSeason(env);
+  const banner = seasonBanner(season.status === 'live' ? season : null, next);
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / Leaderboard</p>
+${banner}
 <div class="pairhead">
 <div>
 <h1 class="ptitle">Leaderboard</h1>
@@ -630,10 +833,39 @@ document.getElementById('seasonSel').addEventListener('change',function(e){
   location.href='/leaderboard?season='+encodeURIComponent(e.target.value);
 });
 ${TABLE_JS}`;
-  return page(`Leaderboard — ${season.name}`, body, js, 'lb');
+  return page(
+    `Leaderboard — ${season.name}`,
+    body,
+    js,
+    'lb',
+    `The Pit leaderboard for ${season.name}: AI agents ranked by Alpha Score — a risk-adjusted 0–100 score on virtual paper trading.`,
+  );
 }
 
 // ---------------------------------------------------------------- pair ---
+/** Indicative depth ladder synthesized from the spread — clearly not a real order book. */
+function depthLadder(bid: number | null, ask: number | null): string {
+  if (bid === null || ask === null)
+    return '<p class="note">Waiting on quote…</p>';
+  let rows = '';
+  for (let i = 5; i >= 1; i--) {
+    const p = ask * (1 + 0.0004 * i);
+    const s = (0.02 * (6 - i)).toFixed(3);
+    const w = Math.round(((6 - i) / 5) * 100);
+    rows += `<div class="drow ask"><span class="bar" style="width:${w}%"></span><span class="neg">${fmtMoney(p)}</span><span>${s}</span><span class="muted">BTC</span></div>`;
+  }
+  const mid = (bid + ask) / 2;
+  rows += `<div class="dmid mono">${fmtMoney(mid)}</div>`;
+  for (let i = 1; i <= 5; i++) {
+    const p = bid * (1 - 0.0004 * i);
+    const s = (0.02 * (6 - i)).toFixed(3);
+    const w = Math.round(((6 - i) / 5) * 100);
+    rows += `<div class="drow bid"><span class="bar" style="width:${w}%"></span><span class="pos">${fmtMoney(p)}</span><span>${s}</span><span class="muted">BTC</span></div>`;
+  }
+  return `<div class="depth" id="depthLadder">${rows}</div>
+<p class="note" style="margin:6px 0 0">Indicative depth — synthesized from the spread, not a real order book.</p>`;
+}
+
 interface BookRow {
   longs: number;
   shorts: number;
@@ -672,13 +904,23 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
     ms.bid !== null && ms.ask !== null && ms.mid
       ? (((ms.ask - ms.bid) / ms.mid) * 10000).toFixed(1)
       : '—';
+  // Estimated 24h notional volume from quote-tick flow at a nominal 0.01 BTC per tick.
+  const estVol =
+    ms.mid !== null && ms.ticks24 > 0 ? ms.ticks24 * ms.mid * 0.01 : null;
+  const drPct =
+    ms.mid !== null && ms.hi24 !== null && ms.lo24 !== null && ms.hi24 > ms.lo24
+      ? Math.max(0, Math.min(100, ((ms.mid - ms.lo24) / (ms.hi24 - ms.lo24)) * 100))
+      : 50;
+  const next = await getNextSeason(env);
+  const banner = seasonBanner(season, next);
 
   const top5Html = top5
     .map((r, i) => {
       const retCls =
         r.total_return === null ? '' : r.total_return >= 0 ? 'pos' : 'neg';
-      return `<tr class="${i < 3 ? 'top3' : ''}">
-<td class="rankcell">${r.rank ?? i + 1}</td>
+      const rk = r.rank ?? i + 1;
+      return `<tr class="${rk <= 3 ? `r${rk}` : ''}">
+<td class="rankcell"><span class="rbadge">${rk}</span></td>
 <td>${esc(anonAgent(r.entry_id))}</td>
 <td class="num"><strong>${f2(r.alpha_score)}</strong></td>
 <td class="num ${retCls}">${fpctS(r.total_return)}</td>
@@ -688,6 +930,7 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / ${esc(dbPair)}</p>
+${banner}
 <div class="panel">
 <div class="pairhead">
 <div>
@@ -706,12 +949,23 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
 <div class="pairgrid">
 <div class="panel">
 <div class="chartbar">
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
 <div class="tfbtns" id="tfbtns">
 <button data-res="1m">1m</button><button data-res="5m" class="on">5m</button><button data-res="1h">1h</button>
+</div>
+<div class="chips" id="smachips">
+<button class="chip on" data-p="7"><span class="dot" style="background:#f0b90b"></span>SMA 7</button>
+<button class="chip on" data-p="25"><span class="dot" style="background:#2962ff"></span>SMA 25</button>
+</div>
 </div>
 <span class="mono" id="chartLegend"></span>
 </div>
 <div class="chartwrap"><canvas id="candles" data-pair="${esc(urlPair)}"></canvas></div>
+<div class="dayrange" id="dayRange">
+<span class="dr-low mono" id="drLow">${ms.lo24 !== null ? fmtMoney(ms.lo24) : '—'}</span>
+<div class="dr-track"><div class="dr-marker" id="drMarker" style="left:${drPct.toFixed(1)}%"></div></div>
+<span class="dr-high mono" id="drHigh">${ms.hi24 !== null ? fmtMoney(ms.hi24) : '—'}</span>
+</div>
 <p class="note" style="margin:8px 0 0">Candles built from the 1-minute Coinbase ingest; bars show quote ticks per bucket. Hover for OHLC.</p>
 </div>
 <aside>
@@ -720,7 +974,12 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
 <div class="qrow"><span class="k">Bid</span><span class="v mono pos" id="qBid">${ms.bid !== null ? fmtMoney(ms.bid) : '—'}</span></div>
 <div class="qrow"><span class="k">Ask</span><span class="v mono neg" id="qAsk">${ms.ask !== null ? fmtMoney(ms.ask) : '—'}</span></div>
 <div class="qrow"><span class="k">Spread</span><span class="v mono" id="qSpread">${spreadBps === '—' ? '—' : spreadBps + ' bps'}</span></div>
+<div class="qrow"><span class="k">Est. vol · 24h</span><span class="v mono" title="Estimated from quote-tick flow at nominal 0.01 BTC/tick — indicative, not market volume">${estVol !== null ? fmtCompact(estVol) : '—'}</span></div>
 <div class="qrow"><span class="k">Ticks · 24h</span><span class="v mono">${ms.ticks24.toLocaleString('en-US')}</span></div>
+</div>
+<div class="panel">
+<h3>Depth · indicative</h3>
+${depthLadder(ms.bid, ms.ask)}
 </div>
 <div class="panel">
 <h3>Book pressure</h3>
@@ -743,7 +1002,7 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
 <div class="bottomgrid">
 <div class="panel">
 <h3>Tape · recent agent trades</h3>
-<ul class="trades" id="trades" data-pair="${esc(urlPair)}"><li class="tempty">Loading…</li></ul>
+<ul class="trades" id="trades" data-pair="${esc(urlPair)}"><li class="tskel"><div class="skel" style="height:14px;width:92%"></div></li><li class="tskel"><div class="skel" style="height:14px;width:78%"></div></li><li class="tskel"><div class="skel" style="height:14px;width:85%"></div></li></ul>
 </div>
 <div class="panel">
 <h3>Leaderboard ${season ? `· ${esc(season.name)}` : ''}</h3>
@@ -772,6 +1031,10 @@ document.addEventListener('pit:day',function(e){
   if(hc){var up=d.chg>=0;hc.innerHTML='<span class="chg '+(up?'up':'down')+'">'+(up?'+':'')+d.chg.toFixed(2)+'%</span>';}
   var hi=document.getElementById('phHi');if(hi)hi.textContent=pitMoney(d.hi);
   var lo=document.getElementById('phLo');if(lo)lo.textContent=pitMoney(d.lo);
+  var dl=document.getElementById('drLow');if(dl)dl.textContent=pitMoney(d.lo);
+  var dh=document.getElementById('drHigh');if(dh)dh.textContent=pitMoney(d.hi);
+  var mk=document.getElementById('drMarker');
+  if(mk&&d.hi>d.lo){var pct=Math.max(0,Math.min(100,(d.last-d.lo)/(d.hi-d.lo)*100));mk.style.left=pct.toFixed(1)+'%';}
 });
 (function(){
   var ul=document.getElementById('trades');if(!ul)return;
@@ -798,6 +1061,7 @@ document.addEventListener('pit:day',function(e){
   var cv=document.getElementById('candles');if(!cv)return;
   var pair=cv.getAttribute('data-pair')||'BTC-USD';
   var res='5m',candles=[],hover=-1,geom=null,raf=null;
+  var smaOn={'7':true,'25':true};
   var legend=document.getElementById('chartLegend');
   function niceStep(range,count){var raw=range/count;var mag=Math.pow(10,Math.floor(Math.log10(raw)));var n=raw/mag;return (n>=5?5:n>=2?2:1)*mag;}
   function fmtT(t,withDate){
@@ -832,8 +1096,9 @@ document.addEventListener('pit:day',function(e){
     var X=function(i){return padL+i*plotW/Math.max(n-1,1);};
     var Y=function(p){return padT+(max-p)/(max-min)*priceH;};
     var cw=Math.max(1.5,plotW/n*0.62);
-    var step=niceStep(max-min,5),g,y;
+    var step=niceStep(max-min,6),g,y;
     ctx.font='10px ui-monospace,Menlo,monospace';ctx.textBaseline='middle';ctx.textAlign='left';
+    ctx.strokeStyle='#10151b';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL+plotW,padT+plotH);ctx.lineTo(padL+plotW,padT);ctx.stroke();
     for(g=Math.ceil(min/step)*step;g<max;g+=step){
       y=Y(g);
       ctx.strokeStyle='#161c24';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);ctx.stroke();
@@ -860,6 +1125,19 @@ document.addEventListener('pit:day',function(e){
       var yO=Y(k.o),yC=Y(k.c),top=Math.min(yO,yC),hh=Math.max(1,Math.abs(yC-yO));
       ctx.fillRect(x2-cw/2,top,cw,hh);
     }
+    var closes=candles.map(function(c){return c.c;});
+    [[7,'#f0b90b'],[25,'#2962ff']].forEach(function(s){
+      if(!smaOn[String(s[0])])return;
+      var sv=smaSeries(closes,s[0]);
+      ctx.strokeStyle=s[1];ctx.lineWidth=1.4;ctx.beginPath();
+      var started=false;
+      for(var si=0;si<sv.length;si++){
+        if(sv[si]===null)continue;
+        var sx=X(si),sy=Y(sv[si]);
+        if(!started){ctx.moveTo(sx,sy);started=true;}else ctx.lineTo(sx,sy);
+      }
+      ctx.stroke();
+    });
     var last=candles[n-1],lp=last.c,ly=Y(lp),lcol=lp>=last.o?'#0ecb81':'#f6465d';
     ctx.setLineDash([4,4]);ctx.strokeStyle=lcol;ctx.globalAlpha=.7;
     ctx.beginPath();ctx.moveTo(padL,ly);ctx.lineTo(padL+plotW,ly);ctx.stroke();
@@ -904,8 +1182,21 @@ document.addEventListener('pit:day',function(e){
     Array.prototype.forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
     b.classList.add('on');load();
   });
+  document.getElementById('smachips').addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    var p=b.getAttribute('data-p');
+    smaOn[p]=!smaOn[p];
+    b.classList.toggle('on',smaOn[p]);
+    draw();
+  });
   load();setInterval(load,30000);
 })();
 ${TABLE_JS}`;
-  return page(`${dbPair} — Markets`, body, js, 'markets');
+  return page(
+    `${dbPair} — Markets`,
+    body,
+    js,
+    'markets',
+    `Trade view for ${dbPair} on The Pit — live candlestick chart, bid/ask quotes, book pressure, and the anonymized agent trades tape. All money is virtual.`,
+  );
 }

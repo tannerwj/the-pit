@@ -1,6 +1,6 @@
 // The Pit — spectator UI + new read-endpoint tests (mock D1, no network).
 import { describe, it, expect } from 'vitest';
-import { homePage, leaderboardPage, pairPage } from '../src/pages';
+import { homePage, leaderboardPage, pairPage, smaSeries, formatCountdown } from '../src/pages';
 import { getEquityCurve, getRecentTrades } from '../src/routes/spectator';
 import type { Env } from '../src/lib/types';
 
@@ -48,6 +48,7 @@ const LB_ROWS = [
     sharpe: 1.8,
     max_drawdown: 0.05,
     win_rate: 0.62,
+    profit_factor: 1.5,
     trades: 12,
     equity: 13000,
     rank: 1,
@@ -60,6 +61,7 @@ const LB_ROWS = [
     sharpe: 0.9,
     max_drawdown: 0.6,
     win_rate: 0.5,
+    profit_factor: 2.2,
     trades: 3,
     equity: 30000,
     rank: 2,
@@ -72,6 +74,10 @@ function pageHandlers(extra: Handler[] = []): Handler[] {
     {
       match: (s) => s.includes("FROM seasons WHERE status = 'live'"),
       first: LIVE_SEASON,
+    },
+    {
+      match: (s) => s.includes("status='scheduled'"),
+      first: null,
     },
     {
       match: (s) => s.includes('FROM seasons WHERE id = ?'),
@@ -235,5 +241,84 @@ describe('spectator read endpoints', () => {
     expect(j.trades.length).toBe(5);
     expect(j.trades[0].agent).toBe('Agent #abcd');
     expect(j.trades[0].agent).not.toContain('abcdef0-uuid');
+  });
+});
+
+describe('wave-2 dashboard polish', () => {
+  it('smaSeries computes moving averages with null padding', () => {
+    expect(smaSeries([1, 2, 3, 4], 2)).toEqual([null, 1.5, 2.5, 3.5]);
+    expect(smaSeries([1, 2], 5)).toEqual([null, null]);
+    expect(smaSeries([], 7)).toEqual([]);
+    expect(smaSeries([10, 20, 30], 1)).toEqual([10, 20, 30]);
+    expect(smaSeries([2, 4, 6], 3)[2]).toBeCloseTo(4);
+  });
+
+  it('formatCountdown renders d/hh/mm/ss and ended', () => {
+    expect(formatCountdown(90061000)).toBe('1d 01:01:01');
+    expect(formatCountdown(3661000)).toBe('01:01:01');
+    expect(formatCountdown(59000)).toBe('00:00:59');
+    expect(formatCountdown(0)).toBe('ended');
+    expect(formatCountdown(-5)).toBe('ended');
+  });
+
+  it('all pages carry favicon, meta description, feed status, ticker tape, season banner', async () => {
+    const pages = [
+      await homePage(mockDb(pageHandlers())),
+      await leaderboardPage(mockDb(pageHandlers()), 'season-1'),
+      await pairPage(mockDb(pageHandlers()), 'BTC-USD'),
+    ];
+    for (const res of pages) {
+      const html = await text(res);
+      expect(html).toContain('rel="icon"');
+      expect(html).toContain('data:image/svg+xml');
+      expect(html).toContain('name="description"');
+      expect(html).toContain('id="feedStat"');
+      expect(html).toContain('id="tickerTrack"');
+      expect(html).toContain('id="seasonBanner"');
+      expect(html).toContain('js-countdown');
+      expect(html).toContain('github.com/tannerwj/the-pit');
+      expect(html).toContain('id="footFeed"');
+    }
+  });
+
+  it('no-live-season banner shows the opens-soon variant', async () => {
+    const handlers = pageHandlers().filter(
+      (h) => !h.match("FROM seasons WHERE status = 'live'"),
+    );
+    handlers.unshift({
+      match: (s) => s.includes("FROM seasons WHERE status = 'live'"),
+      first: null,
+    });
+    const html = await text(await homePage(mockDb(handlers)));
+    expect(html).toContain('No live season');
+    expect(html).toContain('opens soon');
+  });
+
+  it('leaderboard has rank badges and expandable alpha breakdowns', async () => {
+    const html = await text(
+      await leaderboardPage(mockDb(pageHandlers()), 'season-1'),
+    );
+    expect(html).toContain('class="rbadge"');
+    expect(html).toContain('class="xmain r1"');
+    expect(html).toContain('class="xdetail"');
+    expect(html).toContain('Return · 40%');
+    expect(html).toContain('Risk · 40%');
+    expect(html).toContain('Consistency · 20%');
+    expect(html).toContain('PF 1.50');
+  });
+
+  it('pair page has SMA chips, day-range slider, indicative depth, est volume', async () => {
+    const html = await text(await pairPage(mockDb(pageHandlers()), 'BTC-USD'));
+    expect(html).toContain('id="smachips"');
+    expect(html).toContain('SMA 7');
+    expect(html).toContain('SMA 25');
+    expect(html).toContain('smaSeries');
+    expect(html).toContain('id="dayRange"');
+    expect(html).toContain('id="drMarker"');
+    expect(html).toContain('id="depthLadder"');
+    expect(html).toContain('Indicative depth');
+    expect(html).toContain('Est. vol · 24h');
+    expect(html).toContain('class="skel"');
+    expect(html).toContain('formatCountdown');
   });
 });
