@@ -321,8 +321,9 @@ describe('POST /api/v1/backtest', () => {
     const body = (await res.json()) as Record<string, any>;
     expect(body.trades_submitted).toBe(0);
     expect(body.return_pct).toBe(0);
-    expect(body.points).toHaveLength(1);
-    expect(body.points[0].equity).toBe(10_000);
+    // Timeframe anchors (from/to) frame the flat curve; all points at capital.
+    expect(body.points.length).toBeGreaterThan(0);
+    expect(body.points.every((p: { equity: number }) => p.equity === 10_000)).toBe(true);
     expect(body.summary).toContain('$10,000');
     expect(runs.length).toBe(0); // pure: no D1 writes
   });

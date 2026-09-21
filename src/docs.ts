@@ -289,8 +289,12 @@ POST /api/v1/backtest
   stateless: nothing is written — no orders, positions, or entries are created.
   side is "long"|"short"; exactly one of qty (base units) / notional (USD);
   timestamp must not be in the future; max 500 trades.
+  Optional from/to (unix-ms) set the chart timeframe; it defaults to the trades' span.
   -> {"starting_capital","trades_submitted","trades_filled","trades_rejected",
       "return_pct","max_dd","sharpe","points":[{"t","equity"}] (downsampled, first/last kept),
+      "market":{"BTC/USD":[{"t","price"}]} (per-pair mid-price series over the timeframe,
+        server-downsampled to <=600 pts/pair, no-lookahead),
+      "timeframe":{"from","to"} (chart timeframe actually used),
       "trades":[{"index","pair","side","qty","notional_usd","ts","status":"filled"|"rejected",
                  "fill_price","reject_reason":"no_history"|"leverage","realized_pnl","equity_after"}],
       "summary":"One plain-English line, e.g. '4 hypothetical trades on BTC/USD from Mar 2026 to Sep 2026 would have turned $10,000 into $12,340 (+23.4%, max drawdown 8.1%, Sharpe 1.20).'"}
@@ -303,10 +307,10 @@ POST /api/v1/backtest
 
 POST /api/v1/simulate — the exact same replay core as /api/v1/backtest, open
 to anyone: no auth, max 50 trades per request, per-IP rate limit (~20/min).
-Identical response shape (equity curve, stats, per-trade breakdown, summary,
-honesty block). Writes nothing. There is also a clickable page for humans:
-GET /simulate — pair picker, trade builder with a Load-example button, equity
-chart and stat cards, no page reloads.
+Identical response shape (equity curve, market series, stats, per-trade breakdown,
+summary, honesty block). Writes nothing. There is also a clickable page for humans:
+GET /simulate — pair picker, trade builder with a Load-example button, market chart
+with trade markers, hover-to-scrub live P&L readout, and a play-replay button, no page reloads.
 
 ### Admin (X-Admin-Secret) — not for agents
 
@@ -1184,6 +1188,8 @@ function openApiSpec(): Record<string, unknown> {
                   type: 'object',
                   properties: {
                     starting_capital: { type: 'number', description: 'Virtual starting capital, 1000-100000. Default 10000.' },
+                    from: { type: 'integer', description: 'Optional chart-timeframe start, unix-ms. Defaults to the first trade timestamp.' },
+                    to: { type: 'integer', description: 'Optional chart-timeframe end, unix-ms. Defaults to the last trade timestamp.' },
                     trades: {
                       type: 'array',
                       maxItems: 500,
@@ -1223,6 +1229,19 @@ function openApiSpec(): Record<string, unknown> {
                       sharpe: { type: 'number' },
                       points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
                       timeline_points: { type: 'integer' },
+                      market: {
+                        type: 'object',
+                        description: 'Per-pair mid-price market series over the chart timeframe, downsampled server-side to at most 600 points per pair. No-lookahead: each point is the nearest quote at-or-before its timestamp.',
+                        additionalProperties: {
+                          type: 'array',
+                          items: { type: 'object', properties: { t: { type: 'integer' }, price: { type: 'number' } } },
+                        },
+                      },
+                      timeframe: {
+                        type: 'object',
+                        description: 'Chart timeframe actually used (explicit from/to, or the trades-implied span).',
+                        properties: { from: { type: 'integer' }, to: { type: 'integer' } },
+                      },
                       trades: {
                         type: 'array',
                         items: {
@@ -1265,6 +1284,8 @@ function openApiSpec(): Record<string, unknown> {
                   type: 'object',
                   properties: {
                     starting_capital: { type: 'number', description: 'Virtual starting capital, 1000-100000. Default 10000.' },
+                    from: { type: 'integer', description: 'Optional chart-timeframe start, unix-ms. Defaults to the first trade timestamp.' },
+                    to: { type: 'integer', description: 'Optional chart-timeframe end, unix-ms. Defaults to the last trade timestamp.' },
                     trades: {
                       type: 'array',
                       maxItems: 50,
@@ -1304,6 +1325,19 @@ function openApiSpec(): Record<string, unknown> {
                       sharpe: { type: 'number' },
                       points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
                       timeline_points: { type: 'integer' },
+                      market: {
+                        type: 'object',
+                        description: 'Per-pair mid-price market series over the chart timeframe, downsampled server-side to at most 600 points per pair. No-lookahead: each point is the nearest quote at-or-before its timestamp.',
+                        additionalProperties: {
+                          type: 'array',
+                          items: { type: 'object', properties: { t: { type: 'integer' }, price: { type: 'number' } } },
+                        },
+                      },
+                      timeframe: {
+                        type: 'object',
+                        description: 'Chart timeframe actually used (explicit from/to, or the trades-implied span).',
+                        properties: { from: { type: 'integer' }, to: { type: 'integer' } },
+                      },
                       trades: {
                         type: 'array',
                         items: {

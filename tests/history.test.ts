@@ -14,6 +14,8 @@ import {
   backfillWindows,
   COINBASE_MAX_CANDLES,
   BACKFILL_SOURCE,
+  evenTimestamps,
+  MAX_MARKET_POINTS,
 } from '../src/lib/history';
 import { backfillHistory } from '../src/routes/history';
 import type { Env } from '../src/lib/types';
@@ -200,5 +202,24 @@ describe('POST /api/v1/admin/history/backfill', () => {
     expect(res.status).toBe(502);
     const b = (await res.json()) as Record<string, any>;
     expect(b.error.code).toBe('coinbase_error');
+  });
+});
+
+describe('evenTimestamps', () => {
+  it('includes both endpoints, ascending, bounded by maxPoints', () => {
+    const ts = evenTimestamps(1_000, 2_000, 5);
+    expect(ts).toEqual([1000, 1250, 1500, 1750, 2000]);
+    const year = evenTimestamps(0, 365 * 86400_000, MAX_MARKET_POINTS);
+    expect(year.length).toBeLessThanOrEqual(MAX_MARKET_POINTS);
+    expect(year[0]).toBe(0);
+    expect(year[year.length - 1]).toBe(365 * 86400_000);
+    for (let i = 1; i < year.length; i++) expect(year[i]).toBeGreaterThan(year[i - 1]);
+  });
+
+  it('returns [] for degenerate inputs', () => {
+    expect(evenTimestamps(5_000, 5_000, 600)).toEqual([]);
+    expect(evenTimestamps(6_000, 5_000, 600)).toEqual([]);
+    expect(evenTimestamps(NaN, 5_000, 600)).toEqual([]);
+    expect(evenTimestamps(1_000, 2_000, 0)).toEqual([]);
   });
 });

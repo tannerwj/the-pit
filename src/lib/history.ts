@@ -27,6 +27,15 @@ export interface HistoryQuote {
   ask: number;
 }
 
+/** One point of a downsampled market-price series for charting. */
+export interface MarketPoint {
+  t: number;
+  price: number;
+}
+
+/** Upper bound on market-chart points per pair in a simulate/backtest response. */
+export const MAX_MARKET_POINTS = 600;
+
 /** Normalize "BTC-USD" / "btc/usd" / "BTC/USD" to DB form, or null. */
 export function normalizeDbPair(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
@@ -148,4 +157,51 @@ export async function liveHistoryStart(
   );
   const ts = rows[0]?.ts ?? null;
   return typeof ts === 'number' && ts > 0 ? ts : null;
+}
+
+/**
+ * Evenly spaced timestamps over [fromTs, toTs], at most maxPoints, always
+ * including both endpoints. Pure — unit tested. Used to build the market
+ * backdrop series for the simulator replay chart.
+ */
+export function evenTimestamps(
+  fromTs: number,
+  toTs: number,
+  maxPoints: number,
+): number[] {
+  if (
+    !Number.isFinite(fromTs) ||
+    !Number.isFinite(toTs) ||
+    !(toTs > fromTs) ||
+    !Number.isFinite(maxPoints) ||
+    maxPoints < 1
+  ) {
+    return [];
+  }
+  const n = Math.max(2, Math.min(10_000, Math.floor(maxPoints)));
+  const out: number[] = [];
+  const step = (toTs - fromTs) / (n - 1);
+  for (let i = 0; i < n; i++) {
+    out.push(Math.round(fromTs + i * step));
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * Mid-price market series over [fromTs, toTs] for charting, downsampled
+ * server-side to at most maxPoints. Built on quotesForTimeline (nearest quote
+ * at-or-before each target), so every point is no-lookahead by construction.
+ * Reads quotes only — writes nothing.
+ */
+export async function marketSeries(
+  env: Env,
+  pair: string,
+  fromTs: number,
+  toTs: number,
+  maxPoints: number = MAX_MARKET_POINTS,
+): Promise<MarketPoint[]> {
+  const targets = evenTimestamps(fromTs, toTs, maxPoints);
+  if (targets.length === 0) return [];
+  const quotes = await quotesForTimeline(env, pair, targets);
+  return quotes.map((qq) => ({ t: qq.ts, price: (qq.bid + qq.ask) / 2 }));
 }

@@ -79,6 +79,9 @@ export async function postSimulate(req: Request, env: Env): Promise<Response> {
 
   const parsed = parseReplayBody(body, Date.now(), SIMULATE_MAX_TRADES);
   if ('error' in parsed) return err('bad_request', parsed.error, parsed.status);
-  const payload = await runReplay(env, parsed.startingCapital, parsed.trades);
+  const payload = await runReplay(env, parsed.startingCapital, parsed.trades, {
+    from: parsed.from,
+    to: parsed.to,
+  });
   return json(payload);
 }

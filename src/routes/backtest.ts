@@ -16,7 +16,12 @@ import {
   type BacktestTradeResult,
 } from '../lib/backtest';
 import { downsamplePoints } from '../lib/whatif';
-import { quotesForTimeline, normalizeDbPair } from '../lib/history';
+import {
+  quotesForTimeline,
+  normalizeDbPair,
+  marketSeries,
+  type MarketPoint,
+} from '../lib/history';
 
 const MAX_TRADES = 500;
 const MAX_POINTS = 120;
@@ -32,6 +37,11 @@ export interface ReplayPayload {
   points: Array<{ t: number; equity: number }>;
   timeline_points: number;
   trades: BacktestTradeResult[];
+  /** Market backdrop for the replay chart: per-pair mid-price series over the
+   *  timeframe, downsampled server-side (<=600 pts/pair), no-lookahead. */
+  market: Record<string, MarketPoint[]>;
+  /** The chart timeframe actually used (explicit from/to or trade-implied). */
+  timeframe: { from: number; to: number };
   summary: string;
   honesty: Record<string, string>;
 }
@@ -106,7 +116,10 @@ export async function postBacktest(
 
   const parsed = parseReplayBody(body, Date.now(), MAX_TRADES);
   if ('error' in parsed) return err('bad_request', parsed.error, parsed.status);
-  const payload = await runReplay(env, parsed.startingCapital, parsed.trades);
+  const payload = await runReplay(env, parsed.startingCapital, parsed.trades, {
+    from: parsed.from,
+    to: parsed.to,
+  });
   return json(payload);
 }
 
@@ -117,11 +130,22 @@ export async function postBacktest(
  * parseReplayBody validates the request body (no I/O); runReplay reads
  * historical quotes and runs the pure replay (no writes — ever).
  */
+export interface ReplayBody {
+  startingCapital: number;
+  trades: BacktestTradeInput[];
+  /** Optional explicit chart timeframe (unix ms), defaults to the trades' span. */
+  from: number | null;
+  to: number | null;
+}
+
+const isUnixMs = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v > 0;
+
 export function parseReplayBody(
   body: unknown,
   now: number,
   maxTrades: number,
-): { startingCapital: number; trades: BacktestTradeInput[] } | { error: string; status: number } {
+): ReplayBody | { error: string; status: number } {
   if (typeof body !== 'object' || body === null) {
     return { error: 'Request body must be a JSON object', status: 400 };
   }
@@ -152,7 +176,25 @@ export function parseReplayBody(
     if ('error' in parsed) return { error: parsed.error, status: 422 };
     trades.push(parsed.trade);
   }
-  return { startingCapital, trades };
+
+  let from: number | null = null;
+  let to: number | null = null;
+  if (b['from'] !== undefined && b['from'] !== null) {
+    if (!isUnixMs(b['from'])) {
+      return { error: 'from must be a positive integer unix-ms timestamp', status: 422 };
+    }
+    from = b['from'] as number;
+  }
+  if (b['to'] !== undefined && b['to'] !== null) {
+    if (!isUnixMs(b['to'])) {
+      return { error: 'to must be a positive integer unix-ms timestamp', status: 422 };
+    }
+    to = b['to'] as number;
+  }
+  if (from !== null && to !== null && from > to) {
+    return { error: 'from must not be after to', status: 422 };
+  }
+  return { startingCapital, trades, from, to };
 }
 
 /** Run the replay and build the response payload. Reads quotes; writes nothing. */
@@ -160,12 +202,20 @@ export async function runReplay(
   env: Env,
   startingCapital: number,
   trades: BacktestTradeInput[],
+  opts?: { from?: number | null; to?: number | null },
 ): Promise<ReplayPayload> {
-  // Timeline: a pre-first-trade anchor (so the curve starts at starting
-  // capital) plus every trade timestamp. Downsampled later for the response.
+  // Timeline: every trade timestamp plus the chart timeframe anchors, so the
+  // equity curve covers the whole window (flat at starting capital before the
+  // first trade). Downsampled later for the response.
   const tradeTs = [...new Set(trades.map((t) => t.ts))].sort((a, b) => a - b);
-  const timeline =
-    tradeTs.length === 0 ? [Date.now()] : [tradeTs[0] - 1, ...tradeTs];
+  const lastTradeTs = tradeTs.length > 0 ? tradeTs[tradeTs.length - 1] : Date.now();
+  const windowFrom = opts?.from ?? (tradeTs.length > 0 ? tradeTs[0] - 1 : Date.now() - 1);
+  // A `to` before the window start is meaningless — clamp, never error here
+  // (from > to is already a 422 in parseReplayBody).
+  const windowTo = Math.max(opts?.to ?? lastTradeTs, windowFrom);
+  const timeline = [...new Set([windowFrom, ...tradeTs, windowTo])].sort(
+    (a, b) => a - b,
+  );
 
   const pairs = [...new Set(trades.map((t) => t.pair))];
   const quotesByPair = new Map();
@@ -181,6 +231,13 @@ export async function runReplay(
   });
   const stats = backtestStats(replay.points, startingCapital);
 
+  // Market backdrop for the replay chart: bounded, no-lookahead mid-price
+  // series per traded pair over the chart timeframe.
+  const market: Record<string, MarketPoint[]> = {};
+  for (const pair of pairs) {
+    market[pair] = await marketSeries(env, pair, windowFrom, windowTo);
+  }
+
   return {
     starting_capital: startingCapital,
     trades_submitted: trades.length,
@@ -192,6 +249,8 @@ export async function runReplay(
     points: downsamplePoints(replay.points, MAX_POINTS),
     timeline_points: timeline.length,
     trades: replay.trades,
+    market,
+    timeframe: { from: windowFrom, to: windowTo },
     summary: backtestSummary({
       startingCapital,
       finalEquity: replay.finalEquity,

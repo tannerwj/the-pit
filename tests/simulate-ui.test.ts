@@ -77,24 +77,31 @@ afterEach(() => {
   wins = [];
 });
 
-async function loadPage() {
+interface CannedSpec {
+  pair: string;
+  side: 'long' | 'short';
+  notional: number;
+  timestamp: number;
+}
+
+async function loadPage(cannedSpecs?: CannedSpec[]) {
   resetSimulateRateLimit();
   const env = mockDb();
 
-  // Canned response from the REAL route (true API shape) — 4 trades, like Load example.
+  // Canned response from the REAL route (true API shape).
   const span = MX - MN;
+  const specs: CannedSpec[] =
+    cannedSpecs ??
+    [0.18, 0.4, 0.62, 0.85].map((f, i) => ({
+      pair: 'BTC/USD',
+      side: i % 2 === 0 ? 'long' : ('short' as const),
+      notional: 2000 - i * 400,
+      timestamp: Math.round(MN + span * f),
+    }));
   const simReq = new Request('https://the-pit.twj.workers.dev/api/v1/simulate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      starting_capital: 10000,
-      trades: [0.18, 0.4, 0.62, 0.85].map((f, i) => ({
-        pair: 'BTC/USD',
-        side: i % 2 === 0 ? 'long' : 'short',
-        notional: 2000 - i * 400,
-        timestamp: Math.round(MN + span * f),
-      })),
-    }),
+    body: JSON.stringify({ starting_capital: 10000, trades: specs }),
   });
   const simRes = await postSimulate(simReq, env);
   expect(simRes.status).toBe(200);
@@ -240,5 +247,80 @@ describe('/simulate page', () => {
     expect(errEl.hidden).toBe(false);
     expect(errEl.textContent).toContain('Too many simulation requests');
     expect(document.getElementById('simResults')!.hidden).toBe(true);
+  });
+
+  it('replay charts: pair tabs switch series, markers drawn, scrub shows live P&L, play toggles', async () => {
+    const span = MX - MN;
+    const specs = [0.18, 0.4, 0.62, 0.85].map((f, i) => ({
+      pair: i % 2 === 0 ? 'BTC/USD' : 'ETH/USD',
+      side: (i % 2 === 0 ? 'long' : 'short') as 'long' | 'short',
+      notional: 2000 - i * 400,
+      timestamp: Math.round(MN + span * f),
+    }));
+    const { window, document } = await loadPage(specs);
+
+    // Build one valid row so Run passes validation; the canned response is what renders.
+    document.getElementById('simExample')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    const mkt = document.getElementById('simMarketChart')!;
+    const eq = document.getElementById('simChart')!;
+    for (const [cv, h] of [[mkt, 250], [eq, 280]] as const) {
+      Object.defineProperty(cv, 'clientWidth', { value: 800, configurable: true });
+      Object.defineProperty(cv, 'clientHeight', { value: h, configurable: true });
+      Object.defineProperty(cv, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 800, height: h, right: 800, bottom: h }),
+        configurable: true,
+      });
+    }
+    document.getElementById('simRun')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    await tick();
+    expect(document.getElementById('simResults')!.hidden).toBe(false);
+
+    // Pair tabs: one per traded pair; BTC active first.
+    const tabs = document.querySelectorAll('#simPairTabs button');
+    expect(tabs.length).toBe(2);
+    expect(tabs[0].textContent).toBe('BTC/USD');
+    expect(tabs[0].classList.contains('on')).toBe(true);
+    // Two filled BTC trades -> two markers on the market chart.
+    expect(mkt.dataset.markers).toBe('2');
+
+    // Switching tabs swaps the series (2 ETH markers).
+    (tabs[1] as HTMLElement).dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(tabs[1].classList.contains('on')).toBe(true);
+    expect(mkt.dataset.markers).toBe('2');
+
+    // Scrubbing the chart shows the live P&L readout + tooltip.
+    mkt.dispatchEvent(
+      new window.MouseEvent('pointermove', { bubbles: true, clientX: 400, clientY: 100 }),
+    );
+    const live = document.getElementById('simLive')!.textContent!;
+    expect(live).toContain('P&L');
+    expect(live).toMatch(/\$[\d,]+\.\d{2}/);
+    expect(live).toMatch(/[+-]\d+\.\d%/);
+    const tip = document.getElementById('simTip')!;
+    expect(tip.style.display).toBe('block');
+    expect(tip.textContent).toContain('Equity');
+    mkt.dispatchEvent(new window.MouseEvent('pointerleave', { bubbles: true }));
+    expect(tip.style.display).toBe('none');
+
+    // Play button toggles.
+    const play = document.getElementById('simPlay')!;
+    play.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(play.innerHTML).toContain('Pause');
+    play.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(play.innerHTML).toContain('Play replay');
+
+    // Hovering a trade row highlights its marker.
+    const rows = document.querySelectorAll('#simTradeRows tr');
+    expect(rows.length).toBe(4);
+    (rows[1] as HTMLElement).dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    expect(mkt.dataset.hit).toBe('1');
+    document
+      .getElementById('simTradeRows')!
+      .dispatchEvent(new window.MouseEvent('mouseleave', { bubbles: true }));
+    expect(mkt.dataset.hit).toBe('-1');
   });
 });

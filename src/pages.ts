@@ -154,7 +154,13 @@ table.simtable td{vertical-align:middle}
 .simactions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .simerr{margin-top:12px;padding:10px 12px;border:1px solid rgba(246,70,93,.5);background:rgba(246,70,93,.08);color:#f6465d;border-radius:6px;font-size:13px}
 .simsum{font-size:15px;margin:0 0 14px;color:#eaecef;max-width:900px}
-#simChart{width:100%;height:300px;display:block}
+#simChart{width:100%;height:280px;display:block;cursor:crosshair;touch-action:pan-y}
+#simMarketChart{width:100%;height:250px;display:block;cursor:crosshair;touch-action:pan-y}
+.simtip{position:absolute;pointer-events:none;background:#0d1116;border:1px solid #2a3441;border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.55;color:#eaecef;z-index:5;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.55);display:none}
+.simtip .tt{color:#848e9c;font-size:11px;margin-bottom:2px}
+.simreplaybar{display:flex;gap:14px;align-items:center;margin:12px 0 2px;flex-wrap:wrap}
+.simlive{font-size:14px;font-weight:700}
+.simwin{font-size:12.5px;color:#5b6472;margin:8px 0 0}
 button.x{background:transparent;border:0;color:#848e9c;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1}
 button.x:hover{color:#f6465d}
 footer{margin-top:40px;padding-top:18px;border-top:1px solid #1e2630;font-size:12.5px;color:#5b6472}
@@ -1942,6 +1948,10 @@ ${
 <div><div class="simlabel">Pair</div><div class="seg" id="simPairs">${pairBtns}</div></div>
 <div><div class="simlabel">Starting capital (USD)</div><input id="simCapital" class="txt" type="number" value="10000" min="1000" max="100000" step="100" style="width:160px"></div>
 </div>
+<div class="simrow" style="margin-top:12px">
+<div><div class="simlabel">Timeframe from <span style="text-transform:none;letter-spacing:0;font-weight:400">— optional, defaults to your trades</span></div><input id="simFrom" class="txt" type="datetime-local" style="width:185px"></div>
+<div><div class="simlabel">Timeframe to</div><input id="simTo" class="txt" type="datetime-local" style="width:185px"></div>
+</div>
 <div class="simlabel" style="margin:14px 0 6px">Trades <span style="text-transform:none;letter-spacing:0;font-weight:400">— up to 50 · times must fall within available history</span></div>
 <div class="tablescroll"><table class="grid simtable"><thead><tr><th>Time</th><th>Side</th><th class="num">Size</th><th>Unit</th><th></th></tr></thead>
 <tbody id="simRows"></tbody></table></div>
@@ -1954,10 +1964,19 @@ ${
 <div id="simErr" class="simerr" hidden></div>
 </div>
 <div id="simResults" hidden>
-<div class="panel"><h3>Results</h3>
+<div class="panel"><h3>Replay</h3>
 <p id="simSummary" class="simsum"></p>
 <div class="stats" id="simStats" style="margin-bottom:14px"></div>
-<div class="chartwrap"><canvas id="simChart"></canvas></div>
+<div class="simlabel">Market chart <span style="text-transform:none;letter-spacing:0;font-weight:400">— hover to scrub the replay</span></div>
+<div id="simPairTabs" class="seg sm" style="margin-bottom:8px"></div>
+<div class="chartwrap" id="simMarketWrap"><canvas id="simMarketChart"></canvas><div id="simTip" class="simtip"></div></div>
+<div class="simlabel" style="margin-top:12px">Your equity</div>
+<div class="chartwrap" id="simEquityWrap"><canvas id="simChart"></canvas></div>
+<div class="simreplaybar">
+<button class="btn sm ghost" id="simPlay" type="button">\u25b6 Play replay</button>
+<span id="simLive" class="simlive"></span>
+</div>
+<p class="simwin" id="simWinNote"></p>
 </div>
 <div class="panel"><h3 id="simTradeHead">Per-trade breakdown</h3>
 <div class="tablescroll"><table class="grid"><thead><tr><th>#</th><th>Time (UTC)</th><th>Pair</th><th>Side</th><th class="num">Qty</th><th class="num">Fill price</th><th>Status</th><th class="num">Equity after</th></tr></thead>
@@ -1987,8 +2006,6 @@ function money(n){return '$'+Number(n).toLocaleString('en-US',{maximumFractionDi
 function money2(n){return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function pct(n){var v=Number(n);return (v>=0?'+':'')+v.toFixed(1)+'%';}
 function simStat(k,v,cls){return '<div class="stat"><div class="k">'+escH(k)+'</div><div class="v '+cls+'">'+escH(v)+'</div></div>';}
-function nearestIdx(points,ts){var best=0,bd=Infinity;for(var i=0;i<points.length;i++){var d=Math.abs(points[i].t-ts);if(d<bd){bd=d;best=i;}}return best;}
-
 document.getElementById('simPairs').addEventListener('click',function(e){
   var b=e.target.closest?e.target.closest('button'):null;if(!b)return;
   pair=b.getAttribute('data-pair');
@@ -2028,6 +2045,7 @@ document.getElementById('simExample').addEventListener('click',function(){
   for(var i=0;i<ex.length;i++)addRow(Math.round(histFrom+span*ex[i][3]),ex[i][0],ex[i][1],ex[i][2]);
 });
 
+function dtMs(id){var el=document.getElementById(id);var v=el&&el.value;var ms=v?new Date(v).getTime():NaN;return ms;}
 function collect(){
   var cap=parseFloat(document.getElementById('simCapital').value);
   if(!(cap>=1000&&cap<=100000)){showErr('Starting capital must be between $1,000 and $100,000.');return null;}
@@ -2047,49 +2065,230 @@ function collect(){
     if(tr.querySelector('.un').value==='qty')t.qty=size;else t.notional=size;
     out.push(t);
   }
-  return {capital:cap,trades:out};
+  var fms=dtMs('simFrom'),tms=dtMs('simTo');
+  if(isFinite(fms)&&isFinite(tms)&&fms>tms){showErr('Timeframe start must be before the end.');return null;}
+  var rc={capital:cap,trades:out,from:null,to:null};
+  if(isFinite(fms))rc.from=Math.round(fms);
+  if(isFinite(tms))rc.to=Math.round(tms);
+  return rc;
 }
 
-function drawChart(cv,points,cap,trades){
+/* ---- replay charts: market backdrop + equity, shared scrub/playhead ---- */
+var simD=null,simPair=null,simHoverTs=null,simHoverXY=null,simHiTrade=-1;
+var simPlaying=false,simRaf=0;
+
+function binLE(arr,ts,key){var lo=0,hi=arr.length-1,ans=-1;while(lo<=hi){var m=(lo+hi)>>1;if(arr[m][key]<=ts){ans=m;lo=m+1;}else{hi=m-1;}}return ans;}
+function fmtPx(p){p=Number(p);return p>=1000?'$'+Math.round(p).toLocaleString('en-US'):'$'+p.toFixed(2);}
+function chartGeom(w,tf){
+  var pad=Math.max(60000,(tf.to-tf.from)*0.02);
+  var x0=tf.from-pad,x1=tf.to+pad;
+  var padL=12,padR=64,padT=16,padB=24;
+  return {x0:x0,x1:x1,padL:padL,padR:padR,padT:padT,padB:padB,
+    X:function(ts){return padL+(ts-x0)/(x1-x0)*(w-padL-padR);}};
+}
+function sizeCanvas(cv,hDefault){
   var dpr=window.devicePixelRatio||1;
-  var w=cv.clientWidth,h=cv.clientHeight||300;
-  if(!w||!h||points.length<2)return;
+  var w=cv.clientWidth,h=cv.clientHeight||hDefault;
+  if(!w||!h)return null;
   cv.width=w*dpr;cv.height=h*dpr;
-  var ctx=cv.getContext('2d');if(!ctx)return;
+  var ctx=cv.getContext('2d');if(!ctx)return null;
   ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
-  var padL=10,padR=10,padT=14,padB=26,i,v;
+  return {ctx:ctx,w:w,h:h};
+}
+function drawXLabels(ctx,g,w,h){
+  ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
+  var a=fmtDateUTC(g.x0+(g.x1-g.x0)*0.02);
+  ctx.fillText(a,g.padL,h-8);
+  var b=fmtDateUTC(g.x1-(g.x1-g.x0)*0.02),bw=ctx.measureText(b).width;
+  ctx.fillText(b,w-g.padR-bw,h-8);
+}
+function drawCrosshair(ctx,g,w,h,ts){
+  if(ts==null||ts<g.x0||ts>g.x1)return -1;
+  var hx=g.X(ts);
+  ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(132,142,156,.7)';
+  ctx.beginPath();ctx.moveTo(hx,g.padT);ctx.lineTo(hx,h-g.padB);ctx.stroke();ctx.setLineDash([]);
+  return hx;
+}
+
+function drawMarket(cv){
+  if(!simD)return;
+  var s=sizeCanvas(cv,250);if(!s)return;
+  var ctx=s.ctx,w=s.w,h=s.h,i;
+  var j=simD.j,tf=j.timeframe;
+  var series=(j.market&&j.market[simPair])||[];
+  var g=chartGeom(w,tf);
+  cv.dataset.markers='0';cv.dataset.hit='-1';
+  if(series.length<2){
+    ctx.fillStyle='#5b6472';ctx.font='13px sans-serif';
+    ctx.fillText('No market data in this window.',14,26);return;
+  }
+  var trades=j.trades||[],marks=[];
+  for(i=0;i<trades.length;i++){var tm=trades[i];
+    if(tm.status==='filled'&&tm.fill_price!=null&&tm.pair===simPair&&tm.ts>=g.x0&&tm.ts<=g.x1)marks.push(tm);}
+  var mn=Infinity,mx=-Infinity,v;
+  for(i=0;i<series.length;i++){v=series[i].price;if(v<mn)mn=v;if(v>mx)mx=v;}
+  for(i=0;i<marks.length;i++){v=marks[i].fill_price;if(v<mn)mn=v;if(v>mx)mx=v;}
+  var pr=Math.max(mx-mn,(mx+mn)*0.004,1e-9);mn-=pr*0.12;mx+=pr*0.12;
+  function Y(pv){return g.padT+(1-(pv-mn)/(mx-mn))*(h-g.padT-g.padB);}
+  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
+  for(i=0;i<=3;i++){var gv=mn+(mx-mn)*i/3,gy=Y(gv);
+    ctx.beginPath();ctx.moveTo(g.padL,gy);ctx.lineTo(w-g.padR,gy);ctx.stroke();
+    ctx.fillText(fmtPx(gv),w-g.padR+6,gy+3);}
+  ctx.beginPath();
+  for(i=0;i<series.length;i++){var sx=g.X(series[i].t),sy=Y(series[i].price);
+    if(i)ctx.lineTo(sx,sy);else ctx.moveTo(sx,sy);}
+  ctx.strokeStyle='#f0b90b';ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+  ctx.lineTo(g.X(series[series.length-1].t),h-g.padB);ctx.lineTo(g.X(series[0].t),h-g.padB);ctx.closePath();
+  var gr=ctx.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,'rgba(240,185,11,.20)');gr.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=gr;ctx.fill();
+  for(i=0;i<marks.length;i++){
+    var t=marks[i],x=g.X(t.ts),y=Y(t.fill_price);
+    var col=t.side==='long'?'#0ecb81':'#f6465d';
+    var hi=(j.trades.indexOf(t)===simHiTrade);
+    ctx.save();ctx.shadowColor=col;ctx.shadowBlur=hi?16:8;ctx.fillStyle=col;
+    ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill();
+    ctx.beginPath();
+    if(t.side==='long'){ctx.moveTo(x,y+17);ctx.lineTo(x-6,y+8);ctx.lineTo(x+6,y+8);}
+    else{ctx.moveTo(x,y-17);ctx.lineTo(x-6,y-8);ctx.lineTo(x+6,y-8);}
+    ctx.closePath();ctx.fill();ctx.restore();
+    if(hi){ctx.beginPath();ctx.arc(x,y,11,0,7);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();}
+  }
+  cv.dataset.markers=String(marks.length);
+  if(simHiTrade>=0)cv.dataset.hit=String(simHiTrade);
+  var hx=drawCrosshair(ctx,g,w,h,simHoverTs);
+  if(hx>=0){var si=binLE(series,simHoverTs,'t');
+    if(si>=0){var hy=Y(series[si].price);
+      ctx.beginPath();ctx.arc(hx,hy,4,0,7);ctx.fillStyle='#f0b90b';ctx.fill();
+      ctx.lineWidth=1.5;ctx.strokeStyle='#0b0e11';ctx.stroke();}}
+  drawXLabels(ctx,g,w,h);
+}
+
+function drawEquity(cv){
+  if(!simD)return;
+  var s=sizeCanvas(cv,280);if(!s)return;
+  var ctx=s.ctx,w=s.w,h=s.h,i;
+  var j=simD.j,cap=simD.cap,tf=j.timeframe,points=j.points||[];
+  var g=chartGeom(w,tf);
+  if(points.length<2){
+    ctx.fillStyle='#5b6472';ctx.font='13px sans-serif';
+    ctx.fillText('Not enough points to draw.',14,26);return;
+  }
   var vals=points.map(function(p){return p.equity;});vals.push(cap);
-  var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
-  if(max===min)max=min+1;
-  function X(k){return padL+k*(w-padL-padR)/(points.length-1);}
-  function Y(val){return padT+(1-(val-min)/(max-min))*(h-padT-padB);}
-  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;
-  for(i=0;i<=3;i++){v=min+(max-min)*i/3;ctx.beginPath();ctx.moveTo(padL,Y(v));ctx.lineTo(w-padR,Y(v));ctx.stroke();}
+  var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);
+  if(mx===mn)mx=mn+1;
+  function Y(pv){return g.padT+(1-(pv-mn)/(mx-mn))*(h-g.padT-g.padB);}
+  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
+  for(i=0;i<=3;i++){var gv=mn+(mx-mn)*i/3,gy=Y(gv);
+    ctx.beginPath();ctx.moveTo(g.padL,gy);ctx.lineTo(w-g.padR,gy);ctx.stroke();
+    ctx.fillText(money(gv),w-g.padR+6,gy+3);}
   ctx.setLineDash([5,4]);ctx.strokeStyle='#848e9c';
-  ctx.beginPath();ctx.moveTo(padL,Y(cap));ctx.lineTo(w-padR,Y(cap));ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(g.padL,Y(cap));ctx.lineTo(w-g.padR,Y(cap));ctx.stroke();ctx.setLineDash([]);
   var up=points[points.length-1].equity>=points[0].equity,col=up?'#0ecb81':'#f6465d';
   ctx.beginPath();
-  for(i=0;i<points.length;i++){if(i)ctx.lineTo(X(i),Y(points[i].equity));else ctx.moveTo(X(i),Y(points[i].equity));}
+  for(i=0;i<points.length;i++){var sx=g.X(points[i].t),sy=Y(points[i].equity);
+    if(i)ctx.lineTo(sx,sy);else ctx.moveTo(sx,sy);}
   ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
-  ctx.lineTo(X(points.length-1),h-padB);ctx.lineTo(X(0),h-padB);ctx.closePath();
+  ctx.lineTo(g.X(points[points.length-1].t),h-g.padB);ctx.lineTo(g.X(points[0].t),h-g.padB);ctx.closePath();
   var gr=ctx.createLinearGradient(0,0,0,h);
   gr.addColorStop(0,up?'rgba(14,203,129,.22)':'rgba(246,70,93,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=gr;ctx.fill();
-  for(i=0;i<trades.length;i++){
-    var t=trades[i];if(t.status!=='filled'||t.fill_price==null)continue;
-    var idx=nearestIdx(points,t.ts);
-    ctx.beginPath();ctx.arc(X(idx),Y(t.equity_after),3.5,0,7);
-    ctx.fillStyle=t.side==='long'?'#0ecb81':'#f6465d';ctx.fill();
-  }
-  ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
-  ctx.fillText(money(max),padL,padT-3);
-  ctx.fillText(money(min),padL,h-padB+14);
-  ctx.fillText(fmtDateUTC(points[0].t),padL,h-8);
-  var last=fmtDateUTC(points[points.length-1].t);
-  ctx.fillText(last,w-padR-ctx.measureText(last).width,h-8);
+  var hx=drawCrosshair(ctx,g,w,h,simHoverTs);
+  if(hx>=0){var ei=binLE(points,simHoverTs,'t');
+    if(ei>=0){var hy=Y(points[ei].equity);
+      ctx.beginPath();ctx.arc(hx,hy,4,0,7);ctx.fillStyle=col;ctx.fill();
+      ctx.lineWidth=1.5;ctx.strokeStyle='#0b0e11';ctx.stroke();}}
+  drawXLabels(ctx,g,w,h);
 }
 
+/* Live readout: timestamp, market price, equity, P&L $ and % vs starting capital. */
+function updateReadout(){
+  if(!simD)return;
+  var j=simD.j,cap=simD.cap,tf=j.timeframe;
+  var ts=simHoverTs==null?tf.to:simHoverTs;
+  var pts=j.points||[];
+  var ei=binLE(pts,ts,'t');
+  var eq=ei>=0?pts[ei].equity:cap;
+  var pnl=eq-cap,pp=pnl/cap*100,sgn=pnl>=0?'+':'',cls=pnl>=0?'pos':'neg';
+  document.getElementById('simLive').innerHTML=
+    'P&L <span class="'+cls+'">'+sgn+money2(pnl)+' ('+sgn+pp.toFixed(1)+'%)</span>'+
+    '<span class="muted"> \u00b7 '+escH(fmtDTUTC(ts))+' UTC \u00b7 equity '+money2(eq)+'</span>';
+  var tip=document.getElementById('simTip');
+  if(simHoverTs==null||!simHoverXY){tip.style.display='none';return;}
+  var series=(j.market&&j.market[simPair])||[];
+  var si=binLE(series,ts,'t');
+  var html='<div class="tt">'+escH(fmtDTUTC(ts))+' UTC</div>';
+  if(si>=0)html+='<div>'+escH(simPair||'')+' <b>'+fmtPx(series[si].price)+'</b></div>';
+  html+='<div>Equity <b>'+money2(eq)+'</b></div>';
+  html+='<div>P&amp;L <b class="'+cls+'">'+sgn+money2(pnl)+' ('+sgn+pp.toFixed(1)+'%)</b></div>';
+  var trades=j.trades||[],best=-1,bd=Infinity,bi;
+  for(bi=0;bi<trades.length;bi++){var bt=trades[bi];
+    if(bt.status!=='filled'||bt.pair!==simPair)continue;
+    var d=Math.abs(bt.ts-ts);if(d<bd){bd=d;best=bi;}}
+  if(best>=0&&bd<(tf.to-tf.from)*0.03){
+    var t=trades[best];
+    html+='<div class="tt">Trade #'+(best+1)+' \u00b7 <span class="'+(t.side==='long'?'pos':'neg')+'">'+
+      t.side.toUpperCase()+'</span> '+Number(t.qty).toFixed(6)+' '+escH(t.pair.split('/')[0])+
+      ' @ '+fmtPx(t.fill_price)+'</div>';
+  }
+  tip.innerHTML=html;tip.style.display='block';
+  var wrap=document.getElementById('simMarketWrap');
+  var tw=tip.offsetWidth||180,th=tip.offsetHeight||90,ww=wrap.clientWidth||300;
+  var lx=simHoverXY.x+14;if(lx+tw>ww-4)lx=simHoverXY.x-tw-14;if(lx<4)lx=4;
+  var ly=simHoverXY.y-th-10;if(ly<4)ly=4;
+  tip.style.left=lx+'px';tip.style.top=ly+'px';
+}
+
+function simScrubTo(cv,clientX,clientY){
+  if(!simD)return;
+  var r=cv.getBoundingClientRect(),w=cv.clientWidth;
+  if(!r||w<=0)return;
+  var tf=simD.j.timeframe,g=chartGeom(w,tf);
+  var frac=(clientX-r.left-g.padL)/(w-g.padL-g.padR);
+  var ts=Math.round(g.x0+frac*(g.x1-g.x0));
+  simHoverTs=Math.max(tf.from,Math.min(tf.to,ts));
+  simHoverXY={x:clientX-r.left,y:clientY-r.top};
+  drawMarket(document.getElementById('simMarketChart'));
+  drawEquity(document.getElementById('simChart'));
+  updateReadout();
+}
+function simScrubClear(){
+  simHoverTs=null;simHoverXY=null;
+  if(!simD)return;
+  drawMarket(document.getElementById('simMarketChart'));
+  drawEquity(document.getElementById('simChart'));
+  updateReadout();
+}
+function bindScrub(cv){
+  cv.addEventListener('pointermove',function(e){if(simPlaying)stopPlay();simScrubTo(cv,e.clientX,e.clientY);});
+  cv.addEventListener('pointerleave',simScrubClear);
+}
+
+function stopPlay(){
+  simPlaying=false;
+  if(simRaf){if(window.cancelAnimationFrame)window.cancelAnimationFrame(simRaf);else clearTimeout(simRaf);simRaf=0;}
+  var b=document.getElementById('simPlay');if(b)b.innerHTML='\u25b6 Play replay';
+}
+function startPlay(){
+  if(!simD||simPlaying)return;
+  simPlaying=true;simHoverXY=null;
+  document.getElementById('simPlay').innerHTML='\u23f8 Pause';
+  var tf=simD.j.timeframe,dur=6000;
+  var now0=(window.performance&&performance.now)?performance.now():Date.now();
+  var raf=window.requestAnimationFrame||function(cb){return setTimeout(function(){cb((window.performance&&performance.now)?performance.now():Date.now());},16);};
+  function step(now){
+    if(!simPlaying)return;
+    var f=Math.min(1,(now-now0)/Math.max(1,dur));
+    simHoverTs=Math.round(tf.from+f*(tf.to-tf.from));
+    drawMarket(document.getElementById('simMarketChart'));
+    drawEquity(document.getElementById('simChart'));
+    updateReadout();
+    if(f<1)simRaf=raf(step);else stopPlay();
+  }
+  simRaf=raf(step);
+}
 function render(j,cap){
+  simD={j:j,cap:cap};
   document.getElementById('simSummary').textContent=j.summary||'';
   var ret=j.return_pct,dd=j.max_dd;
   document.getElementById('simStats').innerHTML=
@@ -2097,31 +2296,49 @@ function render(j,cap){
     simStat('Total return',pct(ret),ret>=0?'pos':'neg')+
     simStat('Max drawdown',pct(dd),'neg')+
     simStat('Sharpe',Number(j.sharpe).toFixed(2),'');
-  document.getElementById('simTradeHead').innerHTML='Per-trade breakdown <span class="muted">\\u2014 '+
+  var mk=j.market||{};
+  var pairs=Object.keys(mk).filter(function(p){return (mk[p]||[]).length>1;});
+  var tabsEl=document.getElementById('simPairTabs');
+  var mw=document.getElementById('simMarketWrap');
+  if(!pairs.length){tabsEl.style.display='none';mw.style.display='none';}
+  else{
+    tabsEl.style.display='';mw.style.display='';
+    if(pairs.indexOf(simPair)<0)simPair=pairs[0];
+    tabsEl.innerHTML=pairs.map(function(p){
+      return '<button type="button" data-p="'+escH(p)+'"'+(p===simPair?' class="on"':'')+'>'+escH(p)+'</button>';
+    }).join('');
+  }
+  var tf=j.timeframe,trades=j.trades||[],i,winIn=0;
+  for(i=0;i<trades.length;i++){if(trades[i].ts>=tf.from&&trades[i].ts<=tf.to)winIn++;}
+  document.getElementById('simWinNote').textContent='Window '+fmtDTUTC(tf.from)+' \u2192 '+fmtDTUTC(tf.to)+
+    ' UTC \u00b7 '+pairs.length+' market series \u00b7 '+winIn+' of '+trades.length+' trades in window.';
+  document.getElementById('simTradeHead').innerHTML='Per-trade breakdown <span class="muted">\u2014 '+
     j.trades_filled+' filled'+(j.trades_rejected?', '+j.trades_rejected+' rejected':'')+'</span>';
   var tb=document.getElementById('simTradeRows');
-  tb.innerHTML=j.trades.map(function(t,k){
+  tb.innerHTML=trades.map(function(t,k){
     var st=t.status==='filled'?'<span class="pos">filled</span>':'<span class="neg" title="'+escH(t.reject_reason||'')+'">rejected</span>';
-    return '<tr><td class="rankcell">'+(k+1)+'</td><td class="num">'+escH(fmtDTUTC(t.ts))+'</td><td>'+escH(t.pair)+
+    return '<tr data-ti="'+k+'"><td class="rankcell">'+(k+1)+'</td><td class="num">'+escH(fmtDTUTC(t.ts))+'</td><td>'+escH(t.pair)+
       '</td><td class="'+(t.side==='long'?'pos':'neg')+'">'+t.side+'</td>'+
       '<td class="num">'+Number(t.qty).toFixed(6)+'</td>'+
-      '<td class="num">'+(t.fill_price==null?'\\u2013':money2(t.fill_price))+'</td>'+
+      '<td class="num">'+(t.fill_price==null?'\u2013':money2(t.fill_price))+'</td>'+
       '<td>'+st+'</td><td class="num">'+money2(t.equity_after)+'</td></tr>';
   }).join('');
   var h=j.honesty||{};
   document.getElementById('simHonest').textContent='How to read this: '+
-    [h.fill_model,h.lookahead,h.leverage,h.history].filter(Boolean).join(' \\u00b7 ')+'.';
-  drawChart(document.getElementById('simChart'),j.points,cap,j.trades||[]);
+    [h.fill_model,h.lookahead,h.leverage,h.history].filter(Boolean).join(' \u00b7 ')+'.';
+  stopPlay();simHoverTs=null;simHoverXY=null;simHiTrade=-1;
+  drawMarket(document.getElementById('simMarketChart'));
+  drawEquity(document.getElementById('simChart'));
+  updateReadout();
   resEl.hidden=false;
   try{if(resEl.scrollIntoView)resEl.scrollIntoView();}catch(e){}
 }
-
 runBtn.addEventListener('click',function(){
   hideErr();resEl.hidden=true;
   var c=collect();if(!c)return;
   runBtn.disabled=true;var old=runBtn.textContent;runBtn.textContent='Running\\u2026';
   fetch('/api/v1/simulate',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({starting_capital:c.capital,trades:c.trades})})
+    body:(function(){var pl={starting_capital:c.capital,trades:c.trades};if(c.from!=null)pl.from=c.from;if(c.to!=null)pl.to=c.to;return JSON.stringify(pl);})()})
   .then(function(r){return r.json().then(function(b){return{ok:r.ok,status:r.status,body:b};});})
   .then(function(res){
     runBtn.disabled=false;runBtn.textContent=old;
@@ -2130,6 +2347,30 @@ runBtn.addEventListener('click',function(){
   })
   .catch(function(){runBtn.disabled=false;runBtn.textContent=old;showErr('Network error \\u2014 please try again.');});
 });
+document.getElementById('simPlay').addEventListener('click',function(){if(simPlaying)stopPlay();else startPlay();});
+var simTabsEl=document.getElementById('simPairTabs');
+simTabsEl.addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;if(!b||!simD)return;
+  simPair=b.getAttribute('data-p');
+  var btns=simTabsEl.querySelectorAll('button');
+  for(var i=0;i<btns.length;i++)btns[i].classList.toggle('on',btns[i]===b);
+  simHoverTs=null;simHoverXY=null;
+  drawMarket(document.getElementById('simMarketChart'));
+  updateReadout();
+});
+var simTradeTb=document.getElementById('simTradeRows');
+simTradeTb.addEventListener('mouseover',function(e){
+  var tr=e.target&&e.target.closest?e.target.closest('tr'):null;
+  if(!tr||!simD)return;
+  var k=tr.getAttribute('data-ti');if(k==null||k==='')return;
+  k=+k;
+  if(k!==simHiTrade){simHiTrade=k;drawMarket(document.getElementById('simMarketChart'));}
+});
+simTradeTb.addEventListener('mouseleave',function(){
+  if(simHiTrade!==-1){simHiTrade=-1;if(simD)drawMarket(document.getElementById('simMarketChart'));}
+});
+bindScrub(document.getElementById('simMarketChart'));
+bindScrub(document.getElementById('simChart'));
 })();`;
 
   return page('Simulator', body, js, 'sim', 'The Pit simulator — run hypothetical trades against a year of hourly BTC, ETH, SOL, XRP, DOGE market history. No account needed; nothing is written.');

@@ -229,3 +229,166 @@ describe('simulate per-IP rate limit', () => {
     expect(simulateRateOk(ip, t0 + 61_000)).toBe(true);
   });
 });
+
+/** Hourly-grid quotes: each candle's mid is unique per hour, so a market point
+ *  at time T must price exactly the candle at-or-before T (no lookahead). */
+function hourlyGridHandler(): Handler {
+  return {
+    match: (s) => s.includes('WITH needs(ts)'),
+    all: (sql) => {
+      const hits = sql.match(/\(\d+\)/g) ?? [];
+      return hits.map((x) => {
+        const ts = Number(x.slice(1, -1));
+        const candle = Math.floor(ts / 3_600_000) * 3_600_000;
+        const mid = 1000 + candle / 3_600_000;
+        return { need_ts: ts, bid: mid - 1, ask: mid + 1 };
+      });
+    },
+  };
+}
+
+/** Flat quotes: mid exactly 50000 everywhere. */
+function flatQuotesHandler(): Handler {
+  return {
+    match: (s) => s.includes('WITH needs(ts)'),
+    all: (sql) => {
+      const hits = sql.match(/\(\d+\)/g) ?? [];
+      return hits.map((x) => {
+        const ts = Number(x.slice(1, -1));
+        return { need_ts: ts, bid: 49950, ask: 50050 };
+      });
+    },
+  };
+}
+
+describe('POST /api/v1/simulate market replay chart', () => {
+  const T3 = T1 + 2 * 86400_000;
+
+  it('market series is bounded, ordered, in-window, and no-lookahead', async () => {
+    const { env } = mockDb([hourlyGridHandler()]);
+    const res = await postSimulate(
+      post({
+        starting_capital: 10000,
+        trades: [
+          { pair: 'BTC/USD', side: 'long', notional: 1000, timestamp: T1 },
+          { pair: 'BTC/USD', side: 'short', notional: 500, timestamp: T3 },
+        ],
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as {
+      timeframe: { from: number; to: number };
+      market: Record<string, Array<{ t: number; price: number }>>;
+    };
+    // Default timeframe = trade-implied span.
+    expect(j.timeframe.from).toBe(T1 - 1);
+    expect(j.timeframe.to).toBe(T3);
+    const m = j.market['BTC/USD'];
+    expect(m.length).toBeGreaterThan(1);
+    expect(m.length).toBeLessThanOrEqual(600);
+    for (let i = 1; i < m.length; i++) expect(m[i].t).toBeGreaterThan(m[i - 1].t);
+    for (const p of m) {
+      expect(p.t).toBeGreaterThanOrEqual(j.timeframe.from);
+      expect(p.t).toBeLessThanOrEqual(j.timeframe.to);
+      // No lookahead: price is exactly the mid of the candle at-or-before t.
+      expect(p.price).toBe(1000 + Math.floor(p.t / 3_600_000));
+    }
+  });
+
+  it('multi-pair responses carry one bounded series per pair', async () => {
+    const { env } = mockDb([hourlyGridHandler()]);
+    const res = await postSimulate(
+      post({
+        starting_capital: 10000,
+        trades: [
+          { pair: 'BTC/USD', side: 'long', notional: 1000, timestamp: T1 },
+          { pair: 'ETH/USD', side: 'short', notional: 500, timestamp: T1 + 3600_000 },
+        ],
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as {
+      market: Record<string, Array<{ t: number; price: number }>>;
+    };
+    expect(Object.keys(j.market).sort()).toEqual(['BTC/USD', 'ETH/USD']);
+    for (const s of Object.values(j.market)) expect(s.length).toBeLessThanOrEqual(600);
+  });
+
+  it('explicit from/to set the chart timeframe; bad values are 422', async () => {
+    const { env } = mockDb([hourlyGridHandler()]);
+    const from = T1 - 86400_000;
+    const to = T1 + 86400_000;
+    const res = await postSimulate(
+      post({
+        starting_capital: 10000,
+        from,
+        to,
+        trades: [{ pair: 'BTC/USD', side: 'long', notional: 1000, timestamp: T1 }],
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as {
+      timeframe: { from: number; to: number };
+      points: Array<{ t: number; equity: number }>;
+      market: Record<string, Array<{ t: number; price: number }>>;
+    };
+    expect(j.timeframe).toEqual({ from, to });
+    // Equity curve is anchored at the explicit from (starting capital).
+    expect(j.points[0].t).toBe(from);
+    expect(j.points[0].equity).toBe(10000);
+    for (const p of j.market['BTC/USD']) {
+      expect(p.t).toBeGreaterThanOrEqual(from);
+      expect(p.t).toBeLessThanOrEqual(to);
+    }
+
+    const badOrder = await postSimulate(
+      post({ from: to, to: from, trades: [] }),
+      mockDb([]).env,
+    );
+    expect(badOrder.status).toBe(422);
+    const badType = await postSimulate(
+      post({ from: 'yesterday', trades: [] }),
+      mockDb([]).env,
+    );
+    expect(badType.status).toBe(422);
+  });
+
+  it('per-trade fill prices and realized PnL follow the live fill model', async () => {
+    const { env } = mockDb([flatQuotesHandler()]);
+    const res = await postSimulate(
+      post({
+        starting_capital: 10000,
+        trades: [
+          { pair: 'BTC/USD', side: 'long', notional: 1000, timestamp: T1 },
+          { pair: 'BTC/USD', side: 'short', notional: 500, timestamp: T1 + 3600_000 },
+        ],
+      }),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as {
+      trades: Array<{
+        ts: number;
+        side: string;
+        status: string;
+        fill_price: number | null;
+        realized_pnl: number;
+        equity_after: number;
+      }>;
+    };
+    // Marker timestamps match the submitted fill times exactly.
+    expect(j.trades.map((t) => t.ts)).toEqual([T1, T1 + 3600_000]);
+    // Touch-side + 5bps slippage: buy at ask*1.0005, sell at bid*0.9995.
+    expect(j.trades[0].fill_price).toBeCloseTo(50050 * 1.0005, 6);
+    expect(j.trades[1].fill_price).toBeCloseTo(49950 * 0.9995, 6);
+    // Opening trade realizes nothing; the round-trip loses to spread+slippage.
+    expect(j.trades[0].realized_pnl).toBe(0);
+    const closeQty = 500 / (49950 * 0.9995);
+    const expected = closeQty * (49950 * 0.9995 - 50050 * 1.0005);
+    expect(j.trades[1].realized_pnl).toBeCloseTo(expected, 6);
+    expect(j.trades[1].realized_pnl).toBeLessThan(0);
+  });
+});
