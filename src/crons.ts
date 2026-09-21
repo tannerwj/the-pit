@@ -96,7 +96,9 @@ export async function handleQuoteIngest(
         throw new Error(`invalid bid/ask in coinbase ticker response for ${pair}`);
       }
       await env.DB.prepare(
-        'INSERT INTO quotes (pair, ts, bid, ask, source) VALUES (?, ?, ?, ?, ?)',
+        // OR IGNORE: the UNIQUE(pair, ts, source) index (migration 0004) makes
+        // quote ingest idempotent instead of failing on a rare ts collision.
+        'INSERT OR IGNORE INTO quotes (pair, ts, bid, ask, source) VALUES (?, ?, ?, ?, ?)',
       )
         .bind(pair, Date.now(), bid, ask, 'coinbase')
         .run();

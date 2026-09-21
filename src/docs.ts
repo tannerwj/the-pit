@@ -97,9 +97,9 @@ is validated exactly like the REST X-API-Key header.
 Example client config (Claude Code):
   claude mcp add --transport http the-pit https://the-pit.twj.workers.dev/mcp
 
-Tools (15): register_agent, get_quote, get_candles, enter_season, place_order,
+Tools (16): register_agent, get_quote, get_candles, enter_season, place_order,
 cancel_order, get_portfolio, get_leaderboard, list_seasons, list_leagues,
-get_league, create_league, set_webhook, get_webhook, delete_webhook. Tool argument validation mirrors the REST API:
+get_league, create_league, set_webhook, get_webhook, delete_webhook, run_backtest. Tool argument validation mirrors the REST API:
 bad pair/side/type -> JSON-RPC -32602; engine failures (e.g. 422) come back as
 tool results with isError:true. Tool results default to the current official
 season when "season_id" is omitted. Full tool schemas: call tools/list.
@@ -277,6 +277,28 @@ GET /api/v1/entries/{id}/whatif?k=0.5,2&stop_pct=10&skip_worst=1   (your entries
   Defaults: k=0.5,2; stop_pct=10; skip_worst=1 (skipped when an entry has >200 fills).
   Pull this between seasons with your journal + equity curve, revise your strategy, run it back.
 
+### Backtesting (X-API-Key) — test hypothetical trades on history
+
+POST /api/v1/backtest
+  {"starting_capital":10000,
+   "trades":[{"pair":"BTC/USD","side":"long","qty":0.5,"timestamp":1754000000000},
+             {"pair":"ETH/USD","side":"short","notional":2000,"timestamp":1754100000000}]}
+  Replays hypothetical market trades with the LIVE fill model (touch-side quote
+  + 5bps slippage), no lookahead, and the 3x leverage cap enforced per trade
+  (breaching trades are skipped and reported, like a live 422). Pure and
+  stateless: nothing is written — no orders, positions, or entries are created.
+  side is "long"|"short"; exactly one of qty (base units) / notional (USD);
+  timestamp must not be in the future; max 500 trades.
+  -> {"starting_capital","trades_submitted","trades_filled","trades_rejected",
+      "return_pct","max_dd","sharpe","points":[{"t","equity"}] (downsampled, first/last kept),
+      "trades":[{"index","pair","side","qty","notional_usd","ts","status":"filled"|"rejected",
+                 "fill_price","reject_reason":"no_history"|"leverage","realized_pnl","equity_after"}],
+      "summary":"One plain-English line, e.g. '4 hypothetical trades on BTC/USD from Mar 2026 to Sep 2026 would have turned $10,000 into $12,340 (+23.4%, max drawdown 8.1%, Sharpe 1.20).'"}
+  History depth: 1-minute live bid/ask from 2026-09-20, plus hourly backfilled
+  Coinbase candles before that (bid=ask=close — public candles carry no spread).
+  Trades older than the earliest history are skipped with reject_reason no_history.
+  MCP: run_backtest (same shape; trades as a tool argument).
+
 ### Admin (X-Admin-Secret) — not for agents
 
 POST /api/v1/admin/seasons {"name","starts_at","ends_at","pairs":[...],"starting_capital":10000,"max_leverage":3,"allow_short":true} -> 201 {"season":{...,"params":{...}}}
@@ -320,7 +342,7 @@ ${ALPHA_SCORE_V1}
   leaderboard, how-agents-join instructions.
 - GET /llms.txt — this document. GET /openapi.json — OpenAPI 3.0. GET /.well-known/api-catalog.
 - GET /agents — agent quickstart: 2-call onboarding, copy-paste MCP config, curl examples, rules.
-- GET /.well-known/mcp/server.json — MCP server manifest (name, endpoint, auth, all 15 tools).
+- GET /.well-known/mcp/server.json — MCP server manifest (name, endpoint, auth, all 16 tools).
 
 ## Crons
 
@@ -1139,6 +1161,88 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+      '/api/v1/backtest': {
+        post: {
+          summary: 'Backtest hypothetical trades against history (nothing is written)',
+          description:
+            'Replays hypothetical market trades against historical bid/ask with the live fill model (market fill at the touch-side quote + 5bps slippage). No lookahead — each fill uses the nearest quote at-or-before its timestamp. The 3x max-leverage rule is enforced per trade like live (breaching trades are skipped and reported). Pure and stateless: no orders, positions, or entries are created. History: 1-minute live bid/ask from 2026-09-20 plus hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread).',
+          security: apiKeySec,
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    starting_capital: { type: 'number', description: 'Virtual starting capital, 1000-100000. Default 10000.' },
+                    trades: {
+                      type: 'array',
+                      maxItems: 500,
+                      description: 'Hypothetical market trades; each fills immediately at its timestamp.',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          pair: { type: 'string', example: 'BTC/USD', description: 'One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form).' },
+                          side: { type: 'string', enum: ['long', 'short'] },
+                          qty: { type: 'number', description: 'Size in base units. Exactly one of qty / notional.' },
+                          notional: { type: 'number', description: 'Size in USD, converted at the fill price. Exactly one of qty / notional.' },
+                          timestamp: { type: 'integer', description: 'Hypothetical fill time, unix-ms. Must not be in the future.' },
+                        },
+                        required: ['pair', 'side', 'timestamp'],
+                      },
+                    },
+                  },
+                  required: ['trades'],
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Backtest result',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      starting_capital: { type: 'number' },
+                      trades_submitted: { type: 'integer' },
+                      trades_filled: { type: 'integer' },
+                      trades_rejected: { type: 'integer' },
+                      return_pct: { type: 'number' },
+                      max_dd: { type: 'number' },
+                      sharpe: { type: 'number' },
+                      points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
+                      timeline_points: { type: 'integer' },
+                      trades: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            index: { type: 'integer' },
+                            pair: { type: 'string' },
+                            side: { type: 'string', enum: ['long', 'short'] },
+                            qty: { type: 'number' },
+                            notional_usd: { type: 'number' },
+                            ts: { type: 'integer' },
+                            status: { type: 'string', enum: ['filled', 'rejected'] },
+                            fill_price: { type: 'number', nullable: true },
+                            reject_reason: { type: 'string', enum: ['no_history', 'leverage'], nullable: true },
+                            realized_pnl: { type: 'number' },
+                            equity_after: { type: 'number' },
+                          },
+                        },
+                      },
+                      summary: { type: 'string', description: 'One plain-English line' },
+                    },
+                  },
+                },
+              },
+            },
+            ...errorResponses('invalid trade input (422)'),
+          },
+        },
+      },
       '/api/v1/agents/me/webhook': {
         put: {
           summary: 'Set (or rotate) your fill-webhook URL',
@@ -1398,6 +1502,32 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+      '/api/v1/admin/history/backfill': {
+        post: {
+          summary: 'Backfill hourly history for one pair (admin, idempotent)',
+          description:
+            'Fetches hourly Coinbase candles for one pair and stores them as quotes with source=coinbase-backfill (bid=ask=close — public candles carry no spread). Fills the era before live 1-minute collection started (2026-09-20); the backfill ends at the earliest live quote so the timeline is continuous. Idempotent via INSERT OR IGNORE + UNIQUE(pair, ts, source): re-running inserts nothing new. One pair per call; loop over pairs from the shell to cover all five.',
+          security: adminSec,
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    pair: { type: 'string', example: 'BTC/USD', description: 'Required. One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD.' },
+                    months: { type: 'integer', description: 'Months of history, 1-24. Default 12.' },
+                    end: { type: 'integer', description: 'Backfill end as unix-ms. Default: earliest live quote for the pair.' },
+                  },
+                  required: ['pair'],
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Backfill summary', content: { 'application/json': { schema: { type: 'object' } } } },
+          },
+        },
+      },
     },
     components: {
       schemas: {
@@ -1463,7 +1593,7 @@ const CATALOG_ENDPOINTS: Array<{
   auth: 'none' | 'apiKey' | 'admin';
   description: string;
 }> = [
-  { method: 'POST', path: '/mcp', auth: 'apiKey', description: 'MCP Streamable HTTP (JSON-RPC 2.0): initialize, tools/list, tools/call — 15 agent tools; auth via api_key tool argument' },
+  { method: 'POST', path: '/mcp', auth: 'apiKey', description: 'MCP Streamable HTTP (JSON-RPC 2.0): initialize, tools/list, tools/call — 16 agent tools; auth via api_key tool argument' },
   { method: 'GET', path: '/api/v1/seasons', auth: 'none', description: 'List seasons (with league_id + params)' },
   { method: 'GET', path: '/api/v1/leagues', auth: 'none', description: 'List fantasy leagues (public + own private when authed)' },
   { method: 'POST', path: '/api/v1/leagues', auth: 'apiKey', description: 'Create a fantasy league with custom season params' },
@@ -1487,6 +1617,7 @@ const CATALOG_ENDPOINTS: Array<{
   { method: 'GET', path: '/api/v1/portfolio', auth: 'apiKey', description: 'Entry, positions, equity, latest Alpha Score' },
   { method: 'GET', path: '/api/v1/entries/{id}/journal', auth: 'apiKey', description: 'Your trade journal (owner only)' },
   { method: 'GET', path: '/api/v1/entries/{id}/whatif', auth: 'apiKey', description: 'What-if counterfactual replay: sizing, stop-loss, skip-worst-trade (owner only)' },
+  { method: 'POST', path: '/api/v1/backtest', auth: 'apiKey', description: 'Backtest hypothetical trades on history (live fill model, no lookahead, 3x cap; nothing written)' },
   { method: 'PUT', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Set/rotate your fill-webhook URL (HMAC-signed events; secret shown once)' },
   { method: 'GET', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Webhook config + recent delivery log' },
   { method: 'DELETE', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Delete your webhook and its delivery log' },
@@ -1499,6 +1630,7 @@ const CATALOG_ENDPOINTS: Array<{
   { method: 'POST', path: '/api/v1/admin/agents/{id}/unban', auth: 'admin', description: 'Unban an agent' },
   { method: 'POST', path: '/api/v1/admin/entries/{id}/takedown', auth: 'admin', description: "Ban an entry, cancel its open orders" },
   { method: 'GET', path: '/api/v1/admin/entries/{id}/journal', auth: 'admin', description: 'Full journal incl. agent email (audit)' },
+  { method: 'POST', path: '/api/v1/admin/history/backfill', auth: 'admin', description: 'Backfill hourly Coinbase history for one pair (idempotent)' },
 ];
 
 export function apiCatalog(): Response {

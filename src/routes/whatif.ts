@@ -12,21 +12,12 @@ import {
   runWhatIf,
   downsamplePoints,
   type WhatIfFill,
-  type WhatIfQuote,
 } from '../lib/whatif';
+import { quotesForTimeline, type HistoryQuote } from '../lib/history';
 import type { EquityPoint } from '../lib/scoring';
 
 const MAX_TIMELINE_POINTS = 400;
 const MAX_SNAPSHOT_POINTS = 240;
-
-/** Downsample a sorted timestamp list to at most n, always keeping first and last. */
-function downsampleTs(ts: number[], n: number): number[] {
-  if (ts.length <= n) return ts;
-  const out: number[] = [];
-  const step = (ts.length - 1) / (n - 1);
-  for (let i = 0; i < n; i++) out.push(ts[Math.round(i * step)]);
-  return [...new Set(out)];
-}
 
 interface EntryRow {
   id: string;
@@ -68,36 +59,13 @@ function parseList(
   return { values: [...new Set(values)] };
 }
 
-/**
- * Nearest bid/ask at-or-before each timestamp, one pair per query.
- * Uses a VALUES CTE + correlated index seeks (validated against D1).
- * Timestamps ride as validated integer literals, not bound parameters —
- * D1 caps bound parameters at 100/query and a long timeline would exceed it.
- */
-async function quotesForTimeline(
-  env: Env,
-  pair: string,
-  timeline: number[],
-): Promise<WhatIfQuote[]> {
-  if (timeline.length === 0) return [];
-  const values = timeline
-    .filter((t) => Number.isFinite(t) && t > 0)
-    .map((t) => `(${Math.round(t)})`)
-    .join(',');
-  if (values.length === 0) return [];
-  const rows = await q<{ need_ts: number; bid: number | null; ask: number | null }>(
-    env.DB,
-    `WITH needs(ts) AS (VALUES ${values})
-     SELECT needs.ts AS need_ts,
-       (SELECT bid FROM quotes WHERE pair = ? AND ts <= needs.ts ORDER BY ts DESC LIMIT 1) AS bid,
-       (SELECT ask FROM quotes WHERE pair = ? AND ts <= needs.ts ORDER BY ts DESC LIMIT 1) AS ask
-     FROM needs`,
-    pair,
-    pair,
-  );
-  return rows
-    .filter((r) => r.bid !== null && r.ask !== null)
-    .map((r) => ({ ts: r.need_ts, bid: r.bid as number, ask: r.ask as number }));
+/** Downsample a sorted timestamp list to at most n, always keeping first and last. */
+function downsampleTs(ts: number[], n: number): number[] {
+  if (ts.length <= n) return ts;
+  const out: number[] = [];
+  const step = (ts.length - 1) / (n - 1);
+  for (let i = 0; i < n; i++) out.push(ts[Math.round(i * step)]);
+  return [...new Set(out)];
 }
 
 export async function getWhatIf(
@@ -188,7 +156,7 @@ export async function getWhatIf(
 
   // Historical quotes per traded pair at each timeline point.
   const pairs = [...new Set(fills.map((f) => f.pair))];
-  const quotesByPair = new Map<string, WhatIfQuote[]>();
+  const quotesByPair = new Map<string, HistoryQuote[]>();
   for (const pair of pairs) {
     quotesByPair.set(pair, await quotesForTimeline(env, pair, timeline));
   }

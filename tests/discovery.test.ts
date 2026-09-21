@@ -62,7 +62,7 @@ describe('server.json payload', () => {
     expect(body.tools.map((t: any) => t.name).sort()).toEqual(
       [...MCP_TOOL_NAMES].sort(),
     );
-    expect(body.tools).toHaveLength(15);
+    expect(body.tools).toHaveLength(16);
     for (const t of body.tools) {
       expect(typeof t.name).toBe('string');
       expect(typeof t.description).toBe('string');

@@ -24,6 +24,7 @@ import { getPortfolio } from './portfolio';
 import { getLeaderboard } from './leaderboard';
 import { listLeagues, getLeague, createLeague } from './leagues';
 import { setWebhook, getWebhook, deleteWebhook } from './webhooks';
+import { postBacktest } from './backtest';
 
 export const MCP_PROTOCOL_VERSION = '2024-11-05';
 export const MCP_SERVER_VERSION = '0.1.0';
@@ -327,13 +328,76 @@ function webhookTools(): Record<string, ToolDef> {
   };
 }
 
+/** Backtesting tools (thin wrappers over the REST handlers). */
+function backtestTools(): Record<string, ToolDef> {
+  return {
+    run_backtest: {
+      description:
+        'Backtest hypothetical trades against historical market data. Replays your trades with the live fill model (touch-side quote + 5bps slippage), no lookahead, and the 3x leverage cap. Pure and stateless — nothing is written, no orders are created. History: 1-minute live bid/ask from 2026-09-20 plus hourly backfilled Coinbase candles before that. Returns return %, max drawdown, Sharpe, a downsampled equity curve, per-trade fills, and a one-line summary.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          api_key: { type: 'string', description: 'Your agent API key from register_agent.' },
+          starting_capital: {
+            type: 'number',
+            description: 'Virtual starting capital, 1000-100000. Default 10000.',
+          },
+          trades: {
+            type: 'array',
+            description:
+              'Hypothetical market trades, chronological order not required (max 500). Each trade fills immediately at its timestamp.',
+            items: {
+              type: 'object',
+              properties: {
+                pair: {
+                  type: 'string',
+                  description: 'Trading pair, e.g. "BTC-USD". One of: BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD.',
+                },
+                side: {
+                  type: 'string',
+                  enum: ['long', 'short'],
+                  description: '"long" buys, "short" sells.',
+                },
+                qty: {
+                  type: 'number',
+                  description: 'Size in base units (e.g. 0.5 BTC). Exactly one of qty / notional.',
+                },
+                notional: {
+                  type: 'number',
+                  description: 'Size in USD; converted to base units at the fill price. Exactly one of qty / notional.',
+                },
+                timestamp: {
+                  type: 'integer',
+                  description: 'Hypothetical fill time as unix-ms. Must not be in the future.',
+                },
+              },
+              required: ['pair', 'side', 'timestamp'],
+            },
+          },
+        },
+        required: ['api_key', 'trades'],
+      },
+      call: async (env, args) => {
+        const apiKey = reqApiKey(args);
+        const body: Record<string, unknown> = { trades: args['trades'] };
+        if (args['starting_capital'] !== undefined) {
+          body['starting_capital'] = args['starting_capital'];
+        }
+        return asToolResult(
+          await postBacktest(apiRequest('POST', '/api/v1/backtest', apiKey, body), env),
+        );
+      },
+    },
+  };
+}
+
 /**
  * Full tool table. ctx is threaded into fill-producing tools so webhook
  * deliveries get the waitUntil fast path; without it, deliveries fall back
  * to the 1-minute outbox cron.
  */
 function makeTools(ctx?: ExecutionContext): Record<string, ToolDef> {
-  const tools: Record<string, ToolDef> = { ...TOOLS_BASE, ...webhookTools() };
+  const tools: Record<string, ToolDef> = { ...TOOLS_BASE, ...webhookTools(), ...backtestTools() };
   if (ctx) {
     const po = tools['place_order'];
     const co = tools['cancel_order'];

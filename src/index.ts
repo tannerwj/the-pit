@@ -10,6 +10,8 @@ import { getPortfolio } from './routes/portfolio';
 import { getLeaderboard } from './routes/leaderboard';
 import { getJournal } from './routes/journal';
 import { getWhatIf } from './routes/whatif';
+import { postBacktest } from './routes/backtest';
+import { backfillHistory } from './routes/history';
 import {
   setWebhook,
   getWebhook,
@@ -121,6 +123,15 @@ async function fetch(
       ) {
         return adminJournal(req, env, seg[2]);
       }
+      // Hourly history backfill (one pair per call; loop from the shell).
+      if (
+        method === 'POST' &&
+        seg.length === 3 &&
+        seg[1] === 'history' &&
+        seg[2] === 'backfill'
+      ) {
+        return backfillHistory(req, env);
+      }
       return err('not_found', 'Not found', 404);
     }
 
@@ -200,6 +211,10 @@ async function fetch(
     }
     if (method === 'GET' && seg.length === 3 && seg[0] === 'entries' && seg[2] === 'whatif') {
       return getWhatIf(req, env, seg[1]);
+    }
+    // Backtest hypothetical trades against history (pure; nothing is written).
+    if (method === 'POST' && seg.length === 1 && seg[0] === 'backtest') {
+      return postBacktest(req, env);
     }
     // Fill webhooks (one per agent).
     if (seg.length === 3 && seg[0] === 'agents' && seg[1] === 'me' && seg[2] === 'webhook') {
