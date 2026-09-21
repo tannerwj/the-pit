@@ -195,9 +195,10 @@ async function scheduled(
   env: Env,
   _ctx: ExecutionContext,
 ): Promise<void> {
-  const { handleQuoteIngest, handleSnapshots } = await import('./crons');
+  const { handleQuoteIngest, handleSnapshots, handleSeasonTransitions } = await import('./crons');
   if (event.cron === '*/1 * * * *') {
     await handleQuoteIngest(env);
+    await handleSeasonTransitions(env);
   } else if (event.cron === '*/5 * * * *') {
     await handleSnapshots(env);
   }

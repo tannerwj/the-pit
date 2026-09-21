@@ -15,6 +15,7 @@ import {
 import { parseSeasonParams, SUPPORTED_PAIRS } from './lib/leagues';
 import { computeAlphaScore } from './lib/scoring';
 import type { EquityPoint } from './lib/scoring';
+import { settleSeason } from './routes/admin';
 
 function tickerUrl(pair: string): string {
   return `https://api.exchange.coinbase.com/products/${pair.replace('/', '-')}/ticker`;
@@ -345,4 +346,53 @@ async function snapshotEntry(
       now,
     )
     .run();
+}
+
+interface TransitionSeasonRow {
+  id: string;
+  starts_at: number;
+  ends_at: number;
+  status: 'open' | 'live' | 'closed' | 'settled';
+}
+
+/**
+ * 1-minute cron (part 2): auto-transition OFFICIAL seasons through their
+ * lifecycle based on wall-clock time. League seasons (league_id NOT NULL)
+ * are deliberately excluded — league creators drive those manually via the
+ * creator transition endpoints.
+ *
+ * - status='open'   AND now >= starts_at -> 'live'   (trading begins)
+ * - status='live'   AND now >= ends_at   -> close + settleSeason()
+ *   (final scores, ranks, status='settled')
+ *
+ * Idempotent: each transition is guarded on the current status, so a repeat
+ * tick is a no-op. Mirrors the admin seasonTransition handler's exact
+ * sequence (close flip, then settleSeason) without reimplementing scoring.
+ */
+export async function handleSeasonTransitions(env: Env): Promise<void> {
+  const rows = await env.DB.prepare(
+    `SELECT id, starts_at, ends_at, status FROM seasons
+     WHERE league_id IS NULL AND status IN ('open', 'live')`,
+  ).all<TransitionSeasonRow>();
+
+  const now = Date.now();
+  for (const s of rows.results ?? []) {
+    try {
+      if (s.status === 'open' && now >= s.starts_at) {
+        await env.DB.prepare("UPDATE seasons SET status = 'live' WHERE id = ? AND status = 'open'")
+          .bind(s.id)
+          .run();
+      } else if (s.status === 'live' && now >= s.ends_at) {
+        // Same sequence as the admin close+settle endpoints: live -> closed,
+        // then settleSeason (final scores, ranks, -> settled).
+        await env.DB.prepare("UPDATE seasons SET status = 'closed' WHERE id = ? AND status = 'live'")
+          .bind(s.id)
+          .run();
+        await settleSeason(env, s.id);
+      }
+    } catch (e) {
+      // One bad season must not kill the batch.
+      console.error('season auto-transition failed for season', s.id, e);
+    }
+  }
 }
