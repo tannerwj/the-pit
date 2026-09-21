@@ -208,6 +208,8 @@ const money = (x: number): string =>
   '$' + Math.round(x).toLocaleString('en-US');
 const pct1 = (x: number): string =>
   `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)}%`;
+// Drawdown is a magnitude (0..1), never signed: "max drawdown 8.1%", not "+8.1%".
+const pctMag = (x: number): string => `${(Math.abs(x) * 100).toFixed(1)}%`;
 
 /** One plain-English summary line for a backtest. */
 export function backtestSummary(args: {
@@ -233,7 +235,7 @@ export function backtestSummary(args: {
   let s =
     `${args.filled} hypothetical ${tradeWord}${pairs}${span} would have turned ` +
     `${money(args.startingCapital)} into ${money(args.finalEquity)} ` +
-    `(${pct1(args.returnPct / 100)}, max drawdown ${pct1(args.maxDd / 100)}, Sharpe ${args.sharpe.toFixed(2)}).`;
+    `(${pct1(args.returnPct / 100)}, max drawdown ${pctMag(args.maxDd / 100)}, Sharpe ${args.sharpe.toFixed(2)}).`;
   if (args.rejected > 0) {
     s += ` ${args.rejected} trade${args.rejected === 1 ? ' was' : 's were'} skipped (no history or 3x leverage cap).`;
   }

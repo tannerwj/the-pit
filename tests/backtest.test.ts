@@ -218,6 +218,8 @@ describe('runBacktestReplay', () => {
     expect(s).toContain('$10,000');
     expect(s).toContain('$12,340');
     expect(s).toContain('+23.4%');
+    expect(s).toContain('max drawdown 8.1%');
+    expect(s).not.toContain('max drawdown +8.1%');
     expect(s).toContain('1 trade was skipped');
     expect(s).not.toContain('\n');
   });

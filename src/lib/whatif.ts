@@ -212,6 +212,8 @@ export function downsamplePoints(
 
 const pct = (x: number): string =>
   `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)}%`;
+// Drawdown is a magnitude (0..1), never signed: "max drawdown 8.1%", not "+8.1%".
+const pctMag = (x: number): string => `${(Math.abs(x) * 100).toFixed(1)}%`;
 
 export interface WhatIfInput {
   fills: WhatIfFill[];
@@ -352,11 +354,11 @@ export function runWhatIf(input: WhatIfInput): {
     const k = best.params.k;
     summary =
       `Sizing every fill ${k}x would have turned ${pct(actual.return_pct / 100)} into ${pct(best.return_pct / 100)} ` +
-      `(max drawdown ${pct(best.max_dd / 100)} vs ${pct(actual.max_dd / 100)} actual).`;
+      `(max drawdown ${pctMag(best.max_dd / 100)} vs ${pctMag(actual.max_dd / 100)} actual).`;
   } else if (best.kind === 'stop_loss') {
     summary =
       `Honoring a ${best.params.stop_pct}% stop-loss would have turned ${pct(actual.return_pct / 100)} into ${pct(best.return_pct / 100)} ` +
-      `and cut max drawdown from ${pct(actual.max_dd / 100)} to ${pct(best.max_dd / 100)}.`;
+      `and cut max drawdown from ${pctMag(actual.max_dd / 100)} to ${pctMag(best.max_dd / 100)}.`;
   } else {
     const detail = best.name.startsWith('skip worst trade')
       ? best.name.slice('skip worst trade'.length)
