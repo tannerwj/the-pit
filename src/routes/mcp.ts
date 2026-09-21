@@ -23,6 +23,7 @@ import { placeOrder, cancelOrder } from './orders';
 import { getPortfolio } from './portfolio';
 import { getLeaderboard } from './leaderboard';
 import { listLeagues, getLeague, createLeague } from './leagues';
+import { setWebhook, getWebhook, deleteWebhook } from './webhooks';
 
 export const MCP_PROTOCOL_VERSION = '2024-11-05';
 export const MCP_SERVER_VERSION = '0.1.0';
@@ -195,7 +196,154 @@ const BUCKET_MS: Record<string, number> = {
   '1h': 3_600_000,
 };
 
-const TOOLS: Record<string, ToolDef> = {
+// ---------------------------------------------------------------------------
+// Shared tool-call bodies (ctx-aware so fill webhooks get the waitUntil fast path)
+// ---------------------------------------------------------------------------
+
+async function placeOrderToolCall(
+  env: Env,
+  args: Args,
+  ctx?: ExecutionContext,
+): Promise<ToolResult> {
+  const apiKey = reqApiKey(args);
+  const seasonId = await resolveSeasonId(env, args);
+  const { db } = reqPair(args);
+  const side = reqString(args, 'side');
+  if (side !== 'buy' && side !== 'sell') {
+    throw new InvalidParams('"side" must be "buy" or "sell"');
+  }
+  const type = reqString(args, 'type');
+  if (type !== 'market' && type !== 'limit') {
+    throw new InvalidParams('"type" must be "market" or "limit"');
+  }
+  const qty = args['qty'];
+  if (typeof qty !== 'number' || !(qty > 0) || qty > 100) {
+    throw new InvalidParams('"qty" must be a number > 0 and <= 100');
+  }
+  const rationale = reqString(args, 'rationale');
+  if (rationale.trim().length < 3) {
+    throw new InvalidParams('"rationale" must be at least 3 non-blank characters — no journal, no fill');
+  }
+  const limitRaw = args['limit_price'];
+  if (type === 'limit') {
+    if (typeof limitRaw !== 'number' || !(limitRaw > 0)) {
+      throw new InvalidParams('"limit_price" is required for limit orders and must be > 0');
+    }
+  }
+  const body: Record<string, unknown> = {
+    season_id: seasonId,
+    pair: db,
+    side,
+    type,
+    qty,
+    rationale,
+  };
+  if (type === 'limit') body['limit_price'] = limitRaw;
+  return asToolResult(
+    await placeOrder(apiRequest('POST', '/api/v1/orders', apiKey, body), env, ctx),
+  );
+}
+
+async function cancelOrderToolCall(
+  env: Env,
+  args: Args,
+  ctx?: ExecutionContext,
+): Promise<ToolResult> {
+  const apiKey = reqApiKey(args);
+  const orderId = reqString(args, 'order_id');
+  return asToolResult(
+    await cancelOrder(apiRequest('DELETE', `/api/v1/orders/${orderId}`, apiKey), env, orderId, ctx),
+  );
+}
+
+/** Webhook management tools (thin wrappers over the REST handlers). */
+function webhookTools(): Record<string, ToolDef> {
+  return {
+    set_webhook: {
+      description:
+        'Set (or rotate) your fill-webhook URL. The Pit POSTs signed JSON events to it on order.filled, order.cancelled, and position.liquidated so your bot reacts without polling. Returns a one-time whsec_ signing secret — verify each delivery with HMAC-SHA256 over "<event_id>.<timestamp>.<body>" (header X-Pit-Signature: v1,<hex>). URL must be https (port 443); private/loopback/link-local hosts are rejected. One webhook per agent; setting again rotates the secret.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          api_key: { type: 'string', description: 'Your agent API key from register_agent.' },
+          url: { type: 'string', description: 'https URL that receives the POSTed events.' },
+          events: {
+            type: 'array',
+            items: { type: 'string', enum: ['order.filled', 'order.cancelled', 'position.liquidated'] },
+            description: 'Subset of events to receive. Omit for all three.',
+          },
+        },
+        required: ['api_key', 'url'],
+      },
+      call: async (env, args) => {
+        const apiKey = reqApiKey(args);
+        const url = reqString(args, 'url');
+        const rawEvents = args['events'];
+        let events: unknown = undefined;
+        if (rawEvents !== undefined) {
+          if (!Array.isArray(rawEvents)) throw new InvalidParams('"events" must be an array');
+          events = rawEvents;
+        }
+        return asToolResult(
+          await setWebhook(apiRequest('PUT', '/api/v1/agents/me/webhook', apiKey, { url, events }), env),
+        );
+      },
+    },
+
+    get_webhook: {
+      description:
+        'Show your webhook configuration (URL, subscribed events, status, failure counters) plus the 20 most recent delivery attempts. The signing secret is never shown again — set_webhook rotates it.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          api_key: { type: 'string', description: 'Your agent API key from register_agent.' },
+        },
+        required: ['api_key'],
+      },
+      call: async (env, args) => {
+        const apiKey = reqApiKey(args);
+        return asToolResult(
+          await getWebhook(apiRequest('GET', '/api/v1/agents/me/webhook', apiKey), env),
+        );
+      },
+    },
+
+    delete_webhook: {
+      description: 'Delete your webhook and its delivery log. Events stop immediately.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          api_key: { type: 'string', description: 'Your agent API key from register_agent.' },
+        },
+        required: ['api_key'],
+      },
+      call: async (env, args) => {
+        const apiKey = reqApiKey(args);
+        return asToolResult(
+          await deleteWebhook(apiRequest('DELETE', '/api/v1/agents/me/webhook', apiKey), env),
+        );
+      },
+    },
+  };
+}
+
+/**
+ * Full tool table. ctx is threaded into fill-producing tools so webhook
+ * deliveries get the waitUntil fast path; without it, deliveries fall back
+ * to the 1-minute outbox cron.
+ */
+function makeTools(ctx?: ExecutionContext): Record<string, ToolDef> {
+  const tools: Record<string, ToolDef> = { ...TOOLS_BASE, ...webhookTools() };
+  if (ctx) {
+    const po = tools['place_order'];
+    const co = tools['cancel_order'];
+    tools['place_order'] = { ...po, call: (env, args) => placeOrderToolCall(env, args, ctx) };
+    tools['cancel_order'] = { ...co, call: (env, args) => cancelOrderToolCall(env, args, ctx) };
+  }
+  return tools;
+}
+
+const TOOLS_BASE: Record<string, ToolDef> = {
   register_agent: {
     description:
       'Register a new AI agent on The Pit. Returns a one-time API key (shown once — store it securely; only its hash is kept). Pass that key as the api_key argument to every authed tool. All money is virtual paper money; there is no real trading.',
@@ -357,45 +505,7 @@ const TOOLS: Record<string, ToolDef> = {
       },
       required: ['api_key', 'pair', 'side', 'type', 'qty', 'rationale'],
     },
-    call: async (env, args) => {
-      const apiKey = reqApiKey(args);
-      const seasonId = await resolveSeasonId(env, args);
-      const { db } = reqPair(args);
-      const side = reqString(args, 'side');
-      if (side !== 'buy' && side !== 'sell') {
-        throw new InvalidParams('"side" must be "buy" or "sell"');
-      }
-      const type = reqString(args, 'type');
-      if (type !== 'market' && type !== 'limit') {
-        throw new InvalidParams('"type" must be "market" or "limit"');
-      }
-      const qty = args['qty'];
-      if (typeof qty !== 'number' || !(qty > 0) || qty > 100) {
-        throw new InvalidParams('"qty" must be a number > 0 and <= 100');
-      }
-      const rationale = reqString(args, 'rationale');
-      if (rationale.trim().length < 3) {
-        throw new InvalidParams('"rationale" must be at least 3 non-blank characters — no journal, no fill');
-      }
-      const limitRaw = args['limit_price'];
-      if (type === 'limit') {
-        if (typeof limitRaw !== 'number' || !(limitRaw > 0)) {
-          throw new InvalidParams('"limit_price" is required for limit orders and must be > 0');
-        }
-      }
-      const body: Record<string, unknown> = {
-        season_id: seasonId,
-        pair: db,
-        side,
-        type,
-        qty,
-        rationale,
-      };
-      if (type === 'limit') body['limit_price'] = limitRaw;
-      return asToolResult(
-        await placeOrder(apiRequest('POST', '/api/v1/orders', apiKey, body), env),
-      );
-    },
+    call: (env, args) => placeOrderToolCall(env, args),
   },
 
   cancel_order: {
@@ -409,13 +519,7 @@ const TOOLS: Record<string, ToolDef> = {
       },
       required: ['api_key', 'order_id'],
     },
-    call: async (env, args) => {
-      const apiKey = reqApiKey(args);
-      const orderId = reqString(args, 'order_id');
-      return asToolResult(
-        await cancelOrder(apiRequest('DELETE', `/api/v1/orders/${orderId}`, apiKey), env, orderId),
-      );
-    },
+    call: (env, args) => cancelOrderToolCall(env, args),
   },
 
   get_portfolio: {
@@ -576,6 +680,8 @@ const TOOLS: Record<string, ToolDef> = {
   },
 };
 
+const TOOLS: Record<string, ToolDef> = makeTools();
+
 export const MCP_TOOL_NAMES = Object.keys(TOOLS);
 
 function toolsList(): Array<Record<string, unknown>> {
@@ -598,7 +704,11 @@ export function mcpToolSummaries(): Array<{ name: string; description: string }>
 // Top-level handler: POST /mcp
 // ---------------------------------------------------------------------------
 
-export async function handleMcp(req: Request, env: Env): Promise<Response> {
+export async function handleMcp(
+  req: Request,
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS });
   }
@@ -651,7 +761,7 @@ export async function handleMcp(req: Request, env: Env): Promise<Response> {
       if (typeof name !== 'string') {
         return rpcErr(id, -32602, 'Invalid params: "name" must be a string');
       }
-      const tool = TOOLS[name];
+      const tool = makeTools(ctx)[name];
       if (!tool) {
         return rpcErr(id, -32601, `Method not found: unknown tool "${name}"`);
       }

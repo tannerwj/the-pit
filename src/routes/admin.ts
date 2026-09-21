@@ -3,6 +3,7 @@ import type { EquityPoint } from '../lib/scoring';
 import { json, err } from '../lib/auth';
 import { q, q1, run } from '../lib/db';
 import { computeAlphaScore } from '../lib/scoring';
+import { enqueueWebhookEvent } from '../lib/webhooks';
 import {
   DEFAULT_SEASON_PARAMS,
   SUPPORTED_PAIRS,
@@ -248,6 +249,7 @@ export async function takedownEntry(
   _req: Request,
   env: Env,
   entryId: string,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const entry = await q1<{
     id: string;
@@ -265,12 +267,39 @@ export async function takedownEntry(
   if (!entry) {
     return err('entry_not_found', 'Entry not found', 404);
   }
+  const openOrders = await q<{
+    id: string;
+    pair: string;
+    side: string;
+    qty: number;
+    type: string;
+    limit_price: number | null;
+  }>(
+    env.DB,
+    `SELECT id, pair, side, qty, type, limit_price FROM orders
+     WHERE entry_id = ? AND status = 'open'`,
+    entryId,
+  );
   await env.DB.batch([
     env.DB.prepare("UPDATE season_entries SET status = 'banned' WHERE id = ?").bind(entryId),
     env.DB.prepare(
       "UPDATE orders SET status = 'cancelled' WHERE entry_id = ? AND status = 'open'",
     ).bind(entryId),
   ]);
+  // Webhook: order.cancelled for each open order (never blocks the takedown).
+  for (const o of openOrders) {
+    await enqueueWebhookEvent(env, ctx, entry.agent_id, 'order.cancelled', {
+      season_id: entry.season_id,
+      entry_id: entry.id,
+      order_id: o.id,
+      pair: o.pair,
+      side: o.side,
+      qty: o.qty,
+      type: o.type,
+      limit_price: o.limit_price,
+      reason: 'takedown',
+    });
+  }
   return json({ entry: { ...entry, status: 'banned' } });
 }
 

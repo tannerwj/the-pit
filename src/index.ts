@@ -9,6 +9,13 @@ import { placeOrder, listOrders, cancelOrder } from './routes/orders';
 import { getPortfolio } from './routes/portfolio';
 import { getLeaderboard } from './routes/leaderboard';
 import { getJournal } from './routes/journal';
+import { getWhatIf } from './routes/whatif';
+import {
+  setWebhook,
+  getWebhook,
+  deleteWebhook,
+  pingWebhook,
+} from './routes/webhooks';
 import {
   createSeason,
   seasonTransition,
@@ -36,7 +43,7 @@ const LEAGUE_SEASON_ACTIONS = ['open', 'close', 'settle'] as const;
 async function fetch(
   req: Request,
   env: Env,
-  _ctx: ExecutionContext,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -65,7 +72,7 @@ async function fetch(
   if (method === 'GET' && path === '/agents') return agentsPage();
 
   // MCP (Model Context Protocol) — Streamable HTTP, JSON-RPC 2.0.
-  if (path === '/mcp') return handleMcp(req, env);
+  if (path === '/mcp') return handleMcp(req, env, ctx);
 
   if (path === '/api/v1' || path.startsWith('/api/v1/')) {
     const seg = path.slice('/api/v1'.length).split('/').filter(Boolean);
@@ -104,7 +111,7 @@ async function fetch(
         seg[1] === 'entries' &&
         seg[3] === 'takedown'
       ) {
-        return takedownEntry(req, env, seg[2]);
+        return takedownEntry(req, env, seg[2], ctx);
       }
       if (
         method === 'GET' &&
@@ -173,11 +180,11 @@ async function fetch(
       return getRecentTrades(req, env, seg[1]);
     }
     if (seg.length === 1 && seg[0] === 'orders') {
-      if (method === 'POST') return placeOrder(req, env);
+      if (method === 'POST') return placeOrder(req, env, ctx);
       if (method === 'GET') return listOrders(req, env);
     }
     if (method === 'DELETE' && seg.length === 2 && seg[0] === 'orders') {
-      return cancelOrder(req, env, seg[1]);
+      return cancelOrder(req, env, seg[1], ctx);
     }
     if (method === 'GET' && seg.length === 1 && seg[0] === 'portfolio') {
       return getPortfolio(req, env);
@@ -191,6 +198,25 @@ async function fetch(
     if (method === 'GET' && seg.length === 3 && seg[0] === 'entries' && seg[2] === 'equity') {
       return getEquityCurve(req, env, seg[1]);
     }
+    if (method === 'GET' && seg.length === 3 && seg[0] === 'entries' && seg[2] === 'whatif') {
+      return getWhatIf(req, env, seg[1]);
+    }
+    // Fill webhooks (one per agent).
+    if (seg.length === 3 && seg[0] === 'agents' && seg[1] === 'me' && seg[2] === 'webhook') {
+      if (method === 'PUT') return setWebhook(req, env);
+      if (method === 'GET') return getWebhook(req, env);
+      if (method === 'DELETE') return deleteWebhook(req, env);
+    }
+    if (
+      method === 'POST' &&
+      seg.length === 4 &&
+      seg[0] === 'agents' &&
+      seg[1] === 'me' &&
+      seg[2] === 'webhook' &&
+      seg[3] === 'ping'
+    ) {
+      return pingWebhook(req, env);
+    }
     return err('not_found', 'Not found', 404);
   }
 
@@ -201,14 +227,14 @@ async function fetch(
 async function scheduled(
   event: ScheduledEvent,
   env: Env,
-  _ctx: ExecutionContext,
+  ctx: ExecutionContext,
 ): Promise<void> {
   const { handleQuoteIngest, handleSnapshots, handleSeasonTransitions } = await import('./crons');
   if (event.cron === '*/1 * * * *') {
-    await handleQuoteIngest(env);
+    await handleQuoteIngest(env, ctx);
     await handleSeasonTransitions(env);
   } else if (event.cron === '*/5 * * * *') {
-    await handleSnapshots(env);
+    await handleSnapshots(env, ctx);
   }
 }
 

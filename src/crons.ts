@@ -16,6 +16,7 @@ import { parseSeasonParams, SUPPORTED_PAIRS } from './lib/leagues';
 import { computeAlphaScore } from './lib/scoring';
 import type { EquityPoint } from './lib/scoring';
 import { settleSeason } from './routes/admin';
+import { drainWebhookOutbox, enqueueWebhookEvent } from './lib/webhooks';
 
 function tickerUrl(pair: string): string {
   return `https://api.exchange.coinbase.com/products/${pair.replace('/', '-')}/ticker`;
@@ -39,6 +40,7 @@ interface LimitOrderRow {
 interface EntryRow {
   id: string;
   season_id: string;
+  agent_id: string;
   starting_capital: number;
   cash: number;
 }
@@ -79,7 +81,10 @@ async function upsertPosition(
  * 1-minute cron: ingest the Coinbase ticker for every supported pair, then
  * match open limit orders in live seasons against the fresh quotes.
  */
-export async function handleQuoteIngest(env: Env): Promise<void> {
+export async function handleQuoteIngest(
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<void> {
   for (const pair of SUPPORTED_PAIRS) {
     try {
       const res = await fetch(tickerUrl(pair));
@@ -112,15 +117,26 @@ export async function handleQuoteIngest(env: Env): Promise<void> {
 
   for (const order of open.results ?? []) {
     try {
-      await fillLimitOrder(env, order);
+      await fillLimitOrder(env, order, ctx);
     } catch (e) {
       // One bad order must not kill the batch.
       console.error('limit fill failed for order', order.id, e);
     }
   }
+
+  // Webhook outbox: retry pending deliveries whose backoff has elapsed.
+  try {
+    await drainWebhookOutbox(env);
+  } catch (e) {
+    console.error('webhook outbox drain failed', e);
+  }
 }
 
-async function fillLimitOrder(env: Env, order: LimitOrderRow): Promise<void> {
+async function fillLimitOrder(
+  env: Env,
+  order: LimitOrderRow,
+  ctx?: ExecutionContext,
+): Promise<void> {
   if (order.limit_price === null || order.limit_price <= 0) return;
   // Latest quote for the order's pair (each supported pair was just ingested).
   const q = await latestQuote(env, order.pair);
@@ -130,13 +146,13 @@ async function fillLimitOrder(env: Env, order: LimitOrderRow): Promise<void> {
   const fillPrice = limitFillPrice(order.limit_price);
 
   const entry = await env.DB.prepare(
-    `SELECT se.starting_capital, se.cash, se.status, s.params
+    `SELECT se.id, se.season_id, se.agent_id, se.starting_capital, se.cash, se.status, s.params
      FROM season_entries se
      JOIN seasons s ON s.id = se.season_id
      WHERE se.id = ?`,
   )
     .bind(order.entry_id)
-    .first<{ starting_capital: number; cash: number; status: string; params: string | null }>();
+    .first<{ id: string; season_id: string; agent_id: string; starting_capital: number; cash: number; status: string; params: string | null }>();
   if (!entry || entry.status !== 'active') return;
   const sparams = parseSeasonParams(entry.params);
 
@@ -177,6 +193,22 @@ async function fillLimitOrder(env: Env, order: LimitOrderRow): Promise<void> {
     .bind(fillPrice, now, fill.realizedPnl, order.id)
     .run();
 
+  // Webhook: order.filled (never blocks the fill path).
+  const equityAfterFill = computeEquity(newCash, fill.qty, midPrice(q));
+  await enqueueWebhookEvent(env, ctx, entry.agent_id, 'order.filled', {
+    season_id: entry.season_id,
+    entry_id: order.entry_id,
+    order_id: order.id,
+    pair: order.pair,
+    side: order.side,
+    qty: order.qty,
+    type: 'limit',
+    fill_price: fillPrice,
+    realized_pnl: fill.realizedPnl,
+    equity_after: equityAfterFill,
+    entry_status: 'active',
+  });
+
   // Same liquidation guard as market fills.
   const equity = computeEquity(newCash, fill.qty, midPrice(q));
   if (shouldLiquidate(equity, entry.starting_capital)) {
@@ -196,10 +228,27 @@ async function fillLimitOrder(env: Env, order: LimitOrderRow): Promise<void> {
         .bind(finalCash, order.entry_id)
         .run();
       await upsertPosition(env, order.entry_id, order.pair, 0, 0);
+      // Webhook: position.liquidated.
+      await enqueueWebhookEvent(env, ctx, entry.agent_id, 'position.liquidated', {
+        season_id: entry.season_id,
+        entry_id: order.entry_id,
+        trigger: 'order_fill',
+        pairs_closed: [order.pair],
+        equity_after: finalCash,
+        entry_status: 'liquidated',
+      });
     } else {
       await env.DB.prepare("UPDATE season_entries SET status = 'liquidated' WHERE id = ?")
         .bind(order.entry_id)
         .run();
+      await enqueueWebhookEvent(env, ctx, entry.agent_id, 'position.liquidated', {
+        season_id: entry.season_id,
+        entry_id: order.entry_id,
+        trigger: 'order_fill',
+        pairs_closed: [],
+        equity_after: newCash,
+        entry_status: 'liquidated',
+      });
     }
   }
 }
@@ -208,9 +257,12 @@ async function fillLimitOrder(env: Env, order: LimitOrderRow): Promise<void> {
  * 5-minute cron: snapshot equity for every active entry in live seasons,
  * recompute Alpha Scores, update ranks, and liquidate entries under water.
  */
-export async function handleSnapshots(env: Env): Promise<void> {
+export async function handleSnapshots(
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<void> {
   const entries = await env.DB.prepare(
-    `SELECT se.id, se.season_id, se.starting_capital, se.cash
+    `SELECT se.id, se.season_id, se.agent_id, se.starting_capital, se.cash
      FROM season_entries se
      JOIN seasons s ON s.id = se.season_id
      WHERE se.status = 'active' AND s.status = 'live'`,
@@ -219,7 +271,7 @@ export async function handleSnapshots(env: Env): Promise<void> {
   const quoteCache = new Map<string, Quote | null>();
   for (const entry of entries.results ?? []) {
     try {
-      await snapshotEntry(env, entry, quoteCache);
+      await snapshotEntry(env, entry, quoteCache, ctx);
     } catch (e) {
       // One bad entry must not kill the batch.
       console.error('snapshot failed for entry', entry.id, e);
@@ -257,6 +309,7 @@ async function snapshotEntry(
   env: Env,
   entry: EntryRow,
   quoteCache: Map<string, Quote | null>,
+  ctx?: ExecutionContext,
 ): Promise<void> {
   // Multi-pair: mark every open position at its pair's latest mid.
   const positions = await env.DB.prepare(
@@ -289,6 +342,7 @@ async function snapshotEntry(
   if (shouldLiquidate(equity, entry.starting_capital)) {
     // Close every open position at market, zero them, mark liquidated. Skip scoring.
     let cash = entry.cash;
+    const closedPairs: string[] = [];
     for (const m of marked) {
       if (m.qty === 0) continue;
       const closeSide: Side = m.qty > 0 ? 'sell' : 'buy';
@@ -301,6 +355,7 @@ async function snapshotEntry(
         closePrice,
       );
       cash += closeFill.cashDelta;
+      closedPairs.push(m.pair);
       await upsertPosition(env, entry.id, m.pair, 0, 0);
     }
     await env.DB.prepare(
@@ -308,6 +363,15 @@ async function snapshotEntry(
     )
       .bind(cash, entry.id)
       .run();
+    // Webhook: position.liquidated (never blocks the snapshot path).
+    await enqueueWebhookEvent(env, ctx, entry.agent_id, 'position.liquidated', {
+      season_id: entry.season_id,
+      entry_id: entry.id,
+      trigger: 'snapshot',
+      pairs_closed: closedPairs,
+      equity_after: cash,
+      entry_status: 'liquidated',
+    });
     return;
   }
 

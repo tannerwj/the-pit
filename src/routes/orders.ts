@@ -6,7 +6,9 @@ import {
   limitFillPrice,
   applyFill,
   checkLeverage,
+  computeEquity,
 } from '../lib/engine';
+import { enqueueWebhookEvent } from '../lib/webhooks';
 import { SUPPORTED_PAIRS, parseSeasonParams } from '../lib/leagues';
 
 const QUOTE_TTL_MS = 120_000; // 120s staleness cutoff for inline market fills
@@ -130,6 +132,7 @@ async function getMarketQuote(
 export async function placeOrder(
   req: Request,
   env: Env,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
@@ -318,6 +321,22 @@ export async function placeOrder(
          WHERE id = ?`,
       ).bind(fillPrice, filledAt, fill.realizedPnl, id),
     ]);
+
+    // Webhook: order.filled (never blocks the fill path; failures are swallowed).
+    const equityAfter = computeEquity(entry.cash + fill.cashDelta, fill.qty, fillPrice);
+    await enqueueWebhookEvent(env, ctx, auth.id, 'order.filled', {
+      season_id: season.id,
+      entry_id: entry.id,
+      order_id: id,
+      pair,
+      side,
+      qty,
+      type: 'market',
+      fill_price: fillPrice,
+      realized_pnl: realizedPnl,
+      equity_after: equityAfter,
+      entry_status: 'active',
+    });
   }
 
   return json(
@@ -385,13 +404,15 @@ export async function cancelOrder(
   req: Request,
   env: Env,
   orderId: string,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
   const order = await q1<OrderRow>(
     env.DB,
     `SELECT o.id, o.entry_id, o.pair, o.side, o.qty, o.type, o.limit_price, o.rationale,
-            o.status, o.created_at, o.filled_at, o.fill_price, o.realized_pnl
+            o.status, o.created_at, o.filled_at, o.fill_price, o.realized_pnl,
+            e.season_id AS season_id
      FROM orders o
      JOIN season_entries e ON e.id = o.entry_id
      WHERE o.id = ? AND e.agent_id = ?`,
@@ -411,5 +432,16 @@ export async function cancelOrder(
   await env.DB.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?")
     .bind(orderId)
     .run();
+  // Webhook: order.cancelled (never blocks the cancel path).
+  await enqueueWebhookEvent(env, ctx, auth.id, 'order.cancelled', {
+    season_id: (order as OrderRow & { season_id: string }).season_id,
+    entry_id: order.entry_id,
+    order_id: order.id,
+    pair: order.pair,
+    side: order.side,
+    qty: order.qty,
+    type: order.type,
+    limit_price: order.limit_price,
+  });
   return json({ order: orderJson({ ...order, status: 'cancelled' }) });
 }
