@@ -586,6 +586,14 @@ function toolsList(): Array<Record<string, unknown>> {
   }));
 }
 
+/** Name + description for every tool — used by the /.well-known/mcp/server.json manifest. */
+export function mcpToolSummaries(): Array<{ name: string; description: string }> {
+  return MCP_TOOL_NAMES.map((name) => ({
+    name,
+    description: TOOLS[name].description,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Top-level handler: POST /mcp
 // ---------------------------------------------------------------------------

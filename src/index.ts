@@ -26,8 +26,8 @@ import {
   leagueSeasonLeaderboard,
 } from './routes/leagues';
 // Track C modules (pages + docs).
-import { homePage, leaderboardPage, pairPage, leaguesPage, leaguePage } from './pages';
-import { llmsTxt, openApiJson, apiCatalog } from './docs';
+import { homePage, agentsPage, leaderboardPage, pairPage, leaguesPage, leaguePage } from './pages';
+import { llmsTxt, openApiJson, apiCatalog, mcpServerJson } from './docs';
 import { handleMcp } from './routes/mcp';
 
 const SEASON_ACTIONS = ['open', 'close', 'settle'] as const;
@@ -59,6 +59,10 @@ async function fetch(
   if (method === 'GET' && path === '/.well-known/api-catalog') {
     return apiCatalog();
   }
+  if (method === 'GET' && path === '/.well-known/mcp/server.json') {
+    return mcpServerJson();
+  }
+  if (method === 'GET' && path === '/agents') return agentsPage();
 
   // MCP (Model Context Protocol) — Streamable HTTP, JSON-RPC 2.0.
   if (path === '/mcp') return handleMcp(req, env);
