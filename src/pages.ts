@@ -154,38 +154,44 @@ table.simtable td{vertical-align:middle}
 .simactions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .simerr{margin-top:12px;padding:10px 12px;border:1px solid rgba(246,70,93,.5);background:rgba(246,70,93,.08);color:#f6465d;border-radius:6px;font-size:13px}
 .simsum{font-size:15px;margin:0 0 14px;color:#eaecef;max-width:900px}
-#simChart{width:100%;height:280px;display:block;cursor:crosshair;touch-action:pan-y}
-#simMarketChart{width:100%;height:250px;display:block;cursor:crosshair;touch-action:pan-y}
-.simtip{position:absolute;pointer-events:none;background:#0d1116;border:1px solid #2a3441;border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.55;color:#eaecef;z-index:5;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.55);display:none}
+#simChart{width:100%;height:210px;display:block;cursor:crosshair;touch-action:pan-y}
+#simMarketChart{width:100%;height:190px;display:block;cursor:crosshair;touch-action:pan-y}
+@media(max-width:720px){#simChart{height:180px}#simMarketChart{height:160px}}
+.simtip{position:absolute;pointer-events:none;background:#0d1116;border:1px solid #2a3441;border-radius:6px;padding:8px 10px;font-size:12px;line-height:1.55;color:#eaecef;z-index:5;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.55);display:none;will-change:transform}
 .simtip .tt{color:#848e9c;font-size:11px;margin-bottom:2px}
 .simreplaybar{display:flex;gap:14px;align-items:center;margin:12px 0 2px;flex-wrap:wrap}
 .simlive{font-size:14px;font-weight:700}
-.simwin{font-size:12.5px;color:#5b6472;margin:8px 0 0}
-.simtransport{display:flex;gap:6px;align-items:center;margin:14px 0 8px;flex-wrap:wrap}
-.tbtn{background:#151b23;border:1px solid #2a3441;color:#eaecef;border-radius:8px;min-width:46px;height:42px;font-size:16px;cursor:pointer;padding:0 10px;font-family:inherit}
+.simwin{font-size:12.5px;color:#5b6472;margin:6px 0 0}
+.simtransport{display:flex;gap:5px;align-items:center;margin:10px 0 6px;flex-wrap:wrap}
+.tbtn{background:#151b23;border:1px solid #2a3441;color:#eaecef;border-radius:7px;min-width:38px;height:34px;font-size:14px;cursor:pointer;padding:0 8px;font-family:inherit;line-height:1}
 .tbtn:hover{border-color:#f0b90b}
 .tbtn.primary{background:#f0b90b;border-color:#f0b90b;color:#0b0e11;font-weight:800}
 .tbtn:disabled{opacity:.35;cursor:default}
-#simSpeed{height:42px;font-weight:700;cursor:pointer}
-.simscrubwrap{position:relative;margin:0 0 12px;padding:0 2px}
-#simScrub{width:100%;accent-color:#f0b90b;height:28px;cursor:pointer;margin:0}
+#simSpeed{height:34px;font-weight:700;cursor:pointer;font-size:13px}
+.simtransport .hint{font-size:11px;color:#5b6472}
+.simscrubwrap{position:relative;margin:0 0 8px;padding:0 2px}
+#simScrub{width:100%;accent-color:#f0b90b;height:24px;cursor:pointer;margin:0}
 #simTicks{position:relative;height:10px;margin:-2px 14px 0}
 .simtick{position:absolute;top:0;width:9px;height:9px;margin-left:-4px;border-radius:50%;background:#0ecb81;cursor:pointer;border:1px solid #0b0e11}
 .simtick.short{background:#f6465d}
 .simtick:hover{transform:scale(1.6)}
-.simmoment{display:flex;gap:20px;align-items:center;flex-wrap:wrap;background:#0d1116;border:1px solid #1e2630;border-radius:10px;padding:12px 16px;margin:0 0 4px}
-.clockbig{font-size:26px;font-weight:800;color:#fff;letter-spacing:.01em}
-.momentgrid{display:flex;gap:20px;flex-wrap:wrap}
-.momentgrid .mk{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#848e9c;font-weight:700}
-.momentgrid .mv{font-size:17px;font-weight:800;margin-top:2px}
-.simprogress{height:6px;background:#151b23;border-radius:3px;overflow:hidden;margin:8px 0 4px}
-#simProgFill{height:100%;width:100%;background:linear-gradient(90deg,#f0b90b,#0ecb81);border-radius:3px}
-.simtour{background:#0d1116;border:1px solid #f0b90b;border-radius:10px;padding:12px 14px;margin:0 0 12px}
-.simtour-step{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#f0b90b;font-weight:800;margin-bottom:6px}
-.simtour-cap{font-size:14.5px;color:#eaecef;line-height:1.55;max-width:920px}
-.simtour-nav{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.simtour-nav button{background:#151b23;border:1px solid #2a3441;color:#eaecef;border-radius:6px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.simmoment{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#0d1116;border:1px solid #1e2630;border-radius:10px;padding:8px 12px;margin:0 0 4px;contain:layout style}
+.clockbig{font-size:22px;font-weight:800;color:#fff;letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.momentgrid{display:flex;gap:16px;flex-wrap:wrap}
+.momentgrid .mk{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#848e9c;font-weight:700;white-space:nowrap}
+.momentgrid .mv{font-size:15px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:64px}
+.simprogress{height:4px;background:#151b23;border-radius:2px;overflow:hidden;margin:6px 0 4px}
+#simProgFill{height:100%;width:100%;background:linear-gradient(90deg,#f0b90b,#0ecb81);border-radius:2px}
+.simtour{background:#0d1116;border:1px solid #f0b90b;border-radius:8px;padding:8px 10px;margin:0 0 8px}
+.simtour-step{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:#f0b90b;font-weight:800;margin-bottom:4px}
+.simtour-cap{font-size:13.5px;color:#eaecef;line-height:1.5;max-width:920px}
+.simtour-nav{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.simtour-nav button{background:#151b23;border:1px solid #2a3441;color:#eaecef;border-radius:6px;padding:5px 12px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit}
 .simtour-nav button:hover{border-color:#f0b90b}
+.collapsebtn{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0;text-align:left;display:inline-flex;align-items:center;gap:8px}
+.collapsebtn .caret{color:#848e9c;font-size:12px}
+#simResults .num,#simResults .mv,#simResults .clockbig{font-variant-numeric:tabular-nums}
+#simInspectRows td.st .stv{font-weight:700}
 .simguide{display:flex;gap:18px;flex-wrap:wrap;background:#0d1116;border:1px dashed #2a3441;border-radius:8px;padding:10px 14px;margin:10px 0 0;font-size:13.5px;color:#c8cdd4}
 .simguide b{color:#f0b90b}
 tr.tr-upcoming{opacity:.45}
@@ -2015,8 +2021,8 @@ ${
 <button class="tbtn" id="simStepF" type="button" title="Step forward one point (Right)">\u25b6</button>
 <button class="tbtn" id="simNextEv" type="button" title="Next trade (Shift+Right)">\u23e9</button>
 <select id="simSpeed" class="txt" title="Replay speed" aria-label="Replay speed"><option value="0.5">0.5\u00d7</option><option value="1" selected>1\u00d7</option><option value="2">2\u00d7</option><option value="4">4\u00d7</option><option value="8">8\u00d7</option><option value="16">16\u00d7</option></select>
-<button class="btn sm ghost" id="simTourBtn" type="button">\U0001f3ac Take the tour</button>
-<span class="muted" style="font-size:12px">Space play/pause \u00b7 \u2190/\u2192 step \u00b7 Shift+\u2190/\u2192 jump trades \u00b7 click a chart or marker to jump</span>
+<button class="btn sm ghost" id="simTourBtn" type="button">🎬 Take the tour</button>
+<span class="hint">Space play/pause · ←/→ step · Shift+←/→ jump trades · click a chart or marker to jump</span>
 </div>
 <div class="simscrubwrap"><input type="range" id="simScrub" min="0" max="1000" value="1000" aria-label="Scrub the replay"><div id="simTicks"></div></div>
 <div id="simTourBar" class="simtour" hidden>
@@ -2031,14 +2037,16 @@ ${
 <div class="simlabel">Market chart <span style="text-transform:none;letter-spacing:0;font-weight:400">— only history up to the playhead is drawn</span></div>
 <div id="simPairTabs" class="seg sm" style="margin-bottom:8px"></div>
 <div class="chartwrap" id="simMarketWrap"><canvas id="simMarketChart"></canvas><div id="simTip" class="simtip"></div></div>
-<div class="simlabel" style="margin-top:12px">Your equity</div>
+<div class="simlabel" style="margin-top:8px">Your equity</div>
 <div class="chartwrap" id="simEquityWrap"><canvas id="simChart"></canvas></div>
 <p class="simwin" id="simWinNote"></p>
 </div>
-<div class="panel"><h3>Position inspector <span class="muted" style="font-weight:400">— at the playhead</span></h3>
+<div class="panel"><h3 style="margin:0 0 8px"><button class="collapsebtn" id="simInspectToggle" type="button" aria-expanded="true"><span>Position inspector</span><span class="muted" style="font-weight:400">— at the playhead</span><span class="caret">▾</span></button></h3>
+<div id="simInspectBody">
 <div class="tablescroll"><table class="grid"><thead><tr><th>#</th><th>Time (UTC)</th><th>Pair</th><th>Side</th><th class="num">Qty</th><th class="num">Entry</th><th>Status</th><th class="num">Unrealized</th></tr></thead>
 <tbody id="simInspectRows"></tbody></table></div>
-<p class="note" id="simNetPos" style="margin:10px 0 0"></p>
+<p class="note" id="simNetPos" style="margin:8px 0 0"></p>
+</div>
 </div>
 <div class="panel"><h3 id="simTradeHead">Per-trade breakdown</h3>
 <div class="tablescroll"><table class="grid"><thead><tr><th>#</th><th>Time (UTC)</th><th>Pair</th><th>Side</th><th class="num">Qty</th><th class="num">Fill price</th><th>Status</th><th class="num">Equity after</th></tr></thead>
@@ -2265,6 +2273,15 @@ function netPositions(T,trades,market){
 }
 /* Full-window playback duration at a speed multiplier (1x = whole replay in ~45s). */
 function playMs(from,to,speed){return Math.max(2000,45000/(speed>0?speed:1));}
+/* X pixel of timestamp T on a w-wide chart (mirrors chartGeom's mapping).
+   The render path prerenders the full series once but only ever reveals it
+   through a clip rect ending at this X — future data stays hidden by
+   construction, so revealX is the no-lookahead contract of the render path. */
+function revealX(T,from,to,w){
+  var pad=Math.max(60000,(to-from)*0.02);
+  var x0=from-pad,x1=to+pad,padL=12,padR=64;
+  return padL+(T-x0)/(x1-x0)*(w-padL-padR);
+}
 function fmtElapsed(ms){
   var s=Math.max(0,Math.round(ms/1000));
   var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
@@ -2274,13 +2291,22 @@ function fmtElapsed(ms){
 }
 return{binLE:binLE,buildGrid:buildGrid,tradeEvents:tradeEvents,stepOnGrid:stepOnGrid,
   jumpEvent:jumpEvent,priceAt:priceAt,equityAt:equityAt,panelAt:panelAt,
-  tradeStateAt:tradeStateAt,netPositions:netPositions,playMs:playMs,fmtElapsed:fmtElapsed};
+  tradeStateAt:tradeStateAt,netPositions:netPositions,playMs:playMs,fmtElapsed:fmtElapsed,
+  revealX:revealX};
 })();
 
-/* ---- replay UI: progressive charts + transport + inspector + tour ---- */
+/* ---- replay UI: progressive charts + transport + inspector + tour ----
+   Perf model: the full market/equity series are prerendered ONCE per Run (per
+   pair, per resize) to offscreen canvases. Every animation frame then only
+   does: clip-reveal via drawImage + playhead + revealed markers + labels.
+   The "at this moment" panel updates text nodes in place; the inspector table
+   is rebuilt only when a trade's status signature changes. No innerHTML churn
+   per frame, no canvas bitmap realloc per frame. */
 var simD=null,simPair=null,simT=0,simGrid=[],simEvents=[];
-var simPlaying=false,simRaf=0,simSpeed=1,simHoverTs=null,simHoverXY=null,simHiTrade=-1;
-var simTour=null;
+var simPlaying=false,simRaf=0,simPlayGen=0,simSpeed=1,simHoverTs=null,simHoverXY=null,simHiTrade=-1;
+var simTour=null,simCache=null,simTipQueued=false;
+var simMcells=null,simClockEl=null,simElapsedEl=null,simProgEl=null;
+var simInspectCells=[],simInspectSig='',simNetCells=[],simNetSig='',simInspectOpen=true;
 var ENG=window.__simEngine;
 
 function simClampT(t){var tf=simD.j.timeframe;return Math.max(tf.from,Math.min(tf.to,t));}
@@ -2299,26 +2325,32 @@ function setPlayBtn(){
   b.title=simPlaying?'Pause (Space)':'Play (Space)';
 }
 function pausePlay(){
-  simPlaying=false;
+  simPlaying=false;simPlayGen++;
   if(simRaf){if(window.cancelAnimationFrame)window.cancelAnimationFrame(simRaf);else clearTimeout(simRaf);simRaf=0;}
   setPlayBtn();
 }
 function playDur(){var tf=simD.j.timeframe;return ENG.playMs(tf.from,tf.to,simSpeed);}
-function startPlay(){
-  if(!simD||simPlaying)return;
-  var tf=simD.j.timeframe;
-  if(simT>=tf.to-1)simT=tf.from;
-  simPlaying=true;simHoverTs=null;simHoverXY=null;setPlayBtn();
-  var t0=simT,span=tf.to-tf.from,dur=playDur();
+/* One rAF loop generation; bumping simPlayGen (pause, speed change) retires
+   any in-flight loop so two loops can never fight over the playhead. */
+function playLoop(){
+  var tf=simD.j.timeframe,t0=simT,span=tf.to-tf.from,dur=playDur();
   var now0=(window.performance&&performance.now)?performance.now():Date.now();
   var raf=window.requestAnimationFrame||function(cb){return setTimeout(function(){cb((window.performance&&performance.now)?performance.now():Date.now());},16);};
+  var gen=++simPlayGen;
   function step(now){
-    if(!simPlaying)return;
+    if(!simPlaying||gen!==simPlayGen)return;
     var f=Math.min(1,(now-now0)/Math.max(1,dur));
     simSetT(t0+f*span,true);
     if(f<1)simRaf=raf(step);else pausePlay();
   }
   simRaf=raf(step);
+}
+function startPlay(){
+  if(!simD||simPlaying)return;
+  var tf=simD.j.timeframe;
+  if(simT>=tf.to-1)simT=tf.from;
+  simPlaying=true;simHoverTs=null;simHoverXY=null;setPlayBtn();
+  playLoop();
 }
 function togglePlay(){if(simPlaying)pausePlay();else startPlay();}
 function stepReplay(dir){if(!simD)return;simSetT(ENG.stepOnGrid(simGrid,simT,dir));}
@@ -2336,14 +2368,99 @@ function chartGeom(w,tf){
   return {x0:x0,x1:x1,padL:padL,padR:padR,padT:padT,padB:padB,
     X:function(ts){return padL+(ts-x0)/(x1-x0)*(w-padL-padR);}};
 }
+/* Size the canvas bitmap only when the CSS size or DPR actually changed;
+   setting canvas.width reallocates + clears every time, so never do it per frame. */
 function sizeCanvas(cv,hDefault){
   var dpr=window.devicePixelRatio||1;
   var w=cv.clientWidth,h=cv.clientHeight||hDefault;
   if(!w||!h)return null;
-  cv.width=w*dpr;cv.height=h*dpr;
+  if(cv._simW!==w||cv._simH!==h||cv._simDpr!==dpr){
+    cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+    cv._simW=w;cv._simH=h;cv._simDpr=dpr;
+  }
   var ctx=cv.getContext('2d');if(!ctx)return null;
-  ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
   return {ctx:ctx,w:w,h:h};
+}
+/* Shared series painter used by the prerender pass. */
+function seriesInto(ctx,g,w,h,arr,yKey,mn,mx,color,fillTop){
+  function Y(pv){return g.padT+(1-(pv-mn)/(mx-mn))*(h-g.padT-g.padB);}
+  ctx.beginPath();
+  for(var i=0;i<arr.length;i++){var sx=g.X(arr[i].t),sy=Y(arr[i][yKey]);
+    if(i)ctx.lineTo(sx,sy);else ctx.moveTo(sx,sy);}
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+  ctx.lineTo(g.X(arr[arr.length-1].t),h-g.padB);ctx.lineTo(g.X(arr[0].t),h-g.padB);ctx.closePath();
+  var gr=ctx.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,fillTop);gr.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=gr;ctx.fill();
+}
+function gridInto(ctx,g,w,h,mn,mx,fmtY){
+  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
+  for(var i=0;i<=3;i++){var gv=mn+(mx-mn)*i/3,gy=g.padT+(1-(gv-mn)/(mx-mn))*(h-g.padT-g.padB);
+    ctx.beginPath();ctx.moveTo(g.padL,gy);ctx.lineTo(w-g.padR,gy);ctx.stroke();
+    ctx.fillText(fmtY(gv),w-g.padR+6,gy+3);}
+}
+/* Prerender the FULL market series (per pair) + equity curve to offscreen
+   canvases once per Run / tab layout / resize. The per-frame draws then only
+   reveal up to the playhead via a clip rect — cheap, and the Y axis stays
+   stable instead of "breathing" as data reveals. */
+function prerenderCharts(){
+  simCache=null;
+  if(!simD)return;
+  var mkt=document.getElementById('simMarketChart'),eqc=document.getElementById('simChart');
+  if(!mkt||!eqc)return;
+  var w=mkt.clientWidth,hM=mkt.clientHeight||190,hE=eqc.clientHeight||210;
+  var dpr=window.devicePixelRatio||1;
+  if(!w||!hM||!hE)return;
+  var j=simD.j,tf=j.timeframe,i,k;
+  var g=chartGeom(w,tf),mk={};
+  var pairs=Object.keys(j.market||{});
+  for(var pi=0;pi<pairs.length;pi++){
+    var p=pairs[pi],series=j.market[p]||[];
+    if(series.length<2)continue;
+    var mn=Infinity,mx=-Infinity,v;
+    for(i=0;i<series.length;i++){v=series[i].price;if(v<mn)mn=v;if(v>mx)mx=v;}
+    var trades=j.trades||[];
+    for(i=0;i<trades.length;i++){var tm=trades[i];
+      if(tm.status==='filled'&&tm.fill_price!=null&&tm.pair===p){v=tm.fill_price;if(v<mn)mn=v;if(v>mx)mx=v;}}
+    var pr=Math.max(mx-mn,(mx+mn)*0.004,1e-9);mn-=pr*0.12;mx+=pr*0.12;
+    var off=document.createElement('canvas');
+    off.width=Math.round(w*dpr);off.height=Math.round(hM*dpr);
+    var ctx=off.getContext('2d');if(!ctx)continue;
+    ctx.scale(dpr,dpr);
+    gridInto(ctx,g,w,hM,mn,mx,fmtPx);
+    seriesInto(ctx,g,w,hM,series,'price',mn,mx,'#f0b90b','rgba(240,185,11,.20)');
+    mk[p]={img:off,mn:mn,mx:mx};
+  }
+  var points=j.points||[],cap=simD.cap;
+  var vals=points.map(function(pt){return pt.equity;});vals.push(cap);
+  var emn=Math.min.apply(null,vals),emx=Math.max.apply(null,vals);
+  if(emx===emn)emx=emn+1;
+  var eoff=document.createElement('canvas');
+  eoff.width=Math.round(w*dpr);eoff.height=Math.round(hE*dpr);
+  var ectx=eoff.getContext('2d'),eq=null;
+  if(ectx){
+    ectx.scale(dpr,dpr);
+    gridInto(ectx,g,w,hE,emn,emx,money);
+    ectx.setLineDash([5,4]);ectx.strokeStyle='#848e9c';
+    var by=g.padT+(1-(cap-emn)/(emx-emn))*(hE-g.padT-g.padB);
+    ectx.beginPath();ectx.moveTo(g.padL,by);ectx.lineTo(w-g.padR,by);ectx.stroke();ectx.setLineDash([]);
+    var up=points.length>1&&points[points.length-1].equity>=points[0].equity;
+    var ecol=up?'#0ecb81':'#f6465d';
+    seriesInto(ectx,g,w,hE,points,'equity',emn,emx,ecol,up?'rgba(14,203,129,.22)':'rgba(246,70,93,.22)');
+    eq={img:eoff,mn:emn,mx:emx};
+  }
+  simCache={w:w,hM:hM,hE:hE,g:g,mk:mk,eq:eq};
+}
+/* Rebuild the prerender when the layout size changed (cheap size check). */
+function ensureCache(){
+  if(!simD){simCache=null;return;}
+  var mkt=document.getElementById('simMarketChart'),eqc=document.getElementById('simChart');
+  if(!mkt||!eqc){simCache=null;return;}
+  var w=mkt.clientWidth,hM=mkt.clientHeight||190,hE=eqc.clientHeight||210;
+  if(!w){simCache=null;return;}
+  if(!simCache||simCache.w!==w||simCache.hM!==hM||simCache.hE!==hE)prerenderCharts();
 }
 function drawXLabels(ctx,g,w,h){
   ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
@@ -2359,42 +2476,33 @@ function drawPlayhead(ctx,g,w,h){
   ctx.strokeStyle='rgba(240,185,11,.85)';ctx.lineWidth=1.5;
   ctx.beginPath();ctx.moveTo(hx,g.padT);ctx.lineTo(hx,h-g.padB);ctx.stroke();
 }
-function clipLE(arr,T,key){var i=ENG.binLE(arr,T,key);return i<0?[]:arr.slice(0,i+1);}
-
+/* Per-frame market draw: reveal the prerendered series through a clip rect at
+   the playhead (ENG.revealX), then paint only the revealed markers, the
+   playhead, and the labels. Future data is never drawn (no-lookahead). */
 function drawMarket(cv){
   if(!simD)return;
-  var s=sizeCanvas(cv,250);if(!s)return;
+  ensureCache();
+  var s=sizeCanvas(cv,190);if(!s)return;
   var ctx=s.ctx,w=s.w,h=s.h,i;
   var j=simD.j,tf=j.timeframe;
+  var c=simCache&&simCache.w===w&&simCache.hM===h?simCache:null;
+  var g=c?c.g:chartGeom(w,tf);
+  var entry=c?c.mk[simPair]:null;
   var series0=(j.market&&j.market[simPair])||[];
-  var series=clipLE(series0,simT,'t');
-  var g=chartGeom(w,tf);
   cv.dataset.markers='0';cv.dataset.hit='-1';cv._simMarks=[];
-  if(series.length<2){
+  if(!entry||series0.length<2){
     ctx.fillStyle='#5b6472';ctx.font='13px sans-serif';
     ctx.fillText('Press play or step forward to reveal the market.',14,26);
     drawPlayhead(ctx,g,w,h);drawXLabels(ctx,g,w,h);return;
   }
+  ctx.save();ctx.beginPath();
+  ctx.rect(0,0,ENG.revealX(simT,tf.from,tf.to,w),h);ctx.clip();
+  ctx.drawImage(entry.img,0,0,w,h);
+  ctx.restore();
   var trades=j.trades||[],marks=[];
   for(i=0;i<trades.length;i++){var tm=trades[i];
     if(tm.status==='filled'&&tm.fill_price!=null&&tm.pair===simPair&&tm.ts<=simT&&tm.ts>=g.x0&&tm.ts<=g.x1)marks.push(tm);}
-  var mn=Infinity,mx=-Infinity,v;
-  for(i=0;i<series.length;i++){v=series[i].price;if(v<mn)mn=v;if(v>mx)mx=v;}
-  for(i=0;i<marks.length;i++){v=marks[i].fill_price;if(v<mn)mn=v;if(v>mx)mx=v;}
-  var pr=Math.max(mx-mn,(mx+mn)*0.004,1e-9);mn-=pr*0.12;mx+=pr*0.12;
-  function Y(pv){return g.padT+(1-(pv-mn)/(mx-mn))*(h-g.padT-g.padB);}
-  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
-  for(i=0;i<=3;i++){var gv=mn+(mx-mn)*i/3,gy=Y(gv);
-    ctx.beginPath();ctx.moveTo(g.padL,gy);ctx.lineTo(w-g.padR,gy);ctx.stroke();
-    ctx.fillText(fmtPx(gv),w-g.padR+6,gy+3);}
-  ctx.beginPath();
-  for(i=0;i<series.length;i++){var sx=g.X(series[i].t),sy=Y(series[i].price);
-    if(i)ctx.lineTo(sx,sy);else ctx.moveTo(sx,sy);}
-  ctx.strokeStyle='#f0b90b';ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
-  ctx.lineTo(g.X(series[series.length-1].t),h-g.padB);ctx.lineTo(g.X(series[0].t),h-g.padB);ctx.closePath();
-  var gr=ctx.createLinearGradient(0,0,0,h);
-  gr.addColorStop(0,'rgba(240,185,11,.20)');gr.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=gr;ctx.fill();
+  function Y(pv){return g.padT+(1-(pv-entry.mn)/(entry.mx-entry.mn))*(h-g.padT-g.padB);}
   for(i=0;i<marks.length;i++){
     var t=marks[i],x=g.X(t.ts),y=Y(t.fill_price);
     var col=t.side==='long'?'#0ecb81':'#f6465d';
@@ -2416,79 +2524,121 @@ function drawMarket(cv){
 
 function drawEquity(cv){
   if(!simD)return;
-  var s=sizeCanvas(cv,280);if(!s)return;
-  var ctx=s.ctx,w=s.w,h=s.h,i;
-  var j=simD.j,cap=simD.cap,tf=j.timeframe;
-  var points=clipLE(j.points||[],simT,'t');
-  var g=chartGeom(w,tf);
-  if(points.length<2){
+  ensureCache();
+  var s=sizeCanvas(cv,210);if(!s)return;
+  var ctx=s.ctx,w=s.w,h=s.h;
+  var j=simD.j,tf=j.timeframe;
+  var c=simCache&&simCache.w===w&&simCache.hE===h?simCache:null;
+  var g=c?c.g:chartGeom(w,tf);
+  var entry=c?c.eq:null;
+  var points=j.points||[];
+  if(!entry||points.length<2){
     ctx.fillStyle='#5b6472';ctx.font='13px sans-serif';
     ctx.fillText('Press play or step forward to reveal your equity.',14,26);
     drawPlayhead(ctx,g,w,h);drawXLabels(ctx,g,w,h);return;
   }
-  var vals=points.map(function(p){return p.equity;});vals.push(cap);
-  var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);
-  if(mx===mn)mx=mn+1;
-  function Y(pv){return g.padT+(1-(pv-mn)/(mx-mn))*(h-g.padT-g.padB);}
-  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
-  for(i=0;i<=3;i++){var gv=mn+(mx-mn)*i/3,gy=Y(gv);
-    ctx.beginPath();ctx.moveTo(g.padL,gy);ctx.lineTo(w-g.padR,gy);ctx.stroke();
-    ctx.fillText(money(gv),w-g.padR+6,gy+3);}
-  ctx.setLineDash([5,4]);ctx.strokeStyle='#848e9c';
-  ctx.beginPath();ctx.moveTo(g.padL,Y(cap));ctx.lineTo(w-g.padR,Y(cap));ctx.stroke();ctx.setLineDash([]);
-  var up=points[points.length-1].equity>=points[0].equity,col=up?'#0ecb81':'#f6465d';
-  ctx.beginPath();
-  for(i=0;i<points.length;i++){var sx=g.X(points[i].t),sy=Y(points[i].equity);
-    if(i)ctx.lineTo(sx,sy);else ctx.moveTo(sx,sy);}
-  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
-  ctx.lineTo(g.X(points[points.length-1].t),h-g.padB);ctx.lineTo(g.X(points[0].t),h-g.padB);ctx.closePath();
-  var gr=ctx.createLinearGradient(0,0,0,h);
-  gr.addColorStop(0,up?'rgba(14,203,129,.22)':'rgba(246,70,93,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=gr;ctx.fill();
+  ctx.save();ctx.beginPath();
+  ctx.rect(0,0,ENG.revealX(simT,tf.from,tf.to,w),h);ctx.clip();
+  ctx.drawImage(entry.img,0,0,w,h);
+  ctx.restore();
   drawPlayhead(ctx,g,w,h);
   drawXLabels(ctx,g,w,h);
 }
 
-function momentCell(k,v,cls){return '<div><div class="mk">'+escH(k)+'</div><div class="mv '+cls+'">'+v+'</div></div>';}
-
-/* "At this moment" panel + position inspector, all computed at the playhead T. */
-function updatePanel(){
-  if(!simD)return;
-  var j=simD.j,cap=simD.cap,tf=j.timeframe,i;
-  document.getElementById('simClock').textContent=fmtDTUTC(simT)+' UTC';
-  document.getElementById('simElapsed').textContent=ENG.fmtElapsed(simT-tf.from)+' into the replay';
-  var p=ENG.panelAt(simT,{points:j.points,cap:cap,trades:j.trades,market:j.market});
-  var cls=p.pnl>=0?'pos':'neg',sgn=p.pnl>=0?'+':'';
-  var html=momentCell('Equity',money2(p.equity),'')+
-    momentCell('P&L',sgn+money2(p.pnl)+' ('+sgn+p.pnlPct.toFixed(1)+'%)',cls)+
-    momentCell('Drawdown from peak',(p.drawdown*100).toFixed(1)+'%','neg');
-  var pairs=Object.keys(p.prices);
-  for(i=0;i<pairs.length;i++)html+=momentCell(pairs[i],fmtPx(p.prices[pairs[i]]),'');
+/* The moment panel skeleton is built once per Run; per frame we only write
+   text nodes — no innerHTML churn, and tabular numerals keep widths stable. */
+function buildMomentSkeleton(){
+  var j=simD.j,mk=j.market||{};
+  var pairs=Object.keys(mk).filter(function(p){return (mk[p]||[]).length>1;});
+  var i,html='';
+  html+='<div><div class="mk">Equity</div><div class="mv" id="simMvEq">\u2014</div></div>';
+  html+='<div><div class="mk">P&amp;L</div><div class="mv" id="simMvPnl">\u2014</div></div>';
+  html+='<div><div class="mk">Drawdown from peak</div><div class="mv neg" id="simMvDd">\u2014</div></div>';
+  for(i=0;i<pairs.length;i++)html+='<div><div class="mk">'+escH(pairs[i])+'</div><div class="mv" id="simMvPx'+i+'">\u2014</div></div>';
   document.getElementById('simMoment').innerHTML=html;
-  var frac=(simT-tf.from)/Math.max(1,tf.to-tf.from);
-  document.getElementById('simProgFill').style.width=(frac*100).toFixed(1)+'%';
+  simClockEl=document.getElementById('simClock');
+  simElapsedEl=document.getElementById('simElapsed');
+  simProgEl=document.getElementById('simProgFill');
+  simMcells={pnl:document.getElementById('simMvPnl'),dd:document.getElementById('simMvDd'),
+    eq:document.getElementById('simMvEq'),px:[]};
+  for(i=0;i<pairs.length;i++)simMcells.px.push({pair:pairs[i],el:document.getElementById('simMvPx'+i)});
+}
+/* Inspector rows are built once per Run. Statuses only change when the
+   playhead crosses a trade timestamp, so we rebuild classes only on a
+   signature change; the unrealized values update in place every frame. */
+function buildInspector(){
+  var j=simD.j;
   var tb=document.getElementById('simInspectRows');
   tb.innerHTML=j.trades.map(function(t,k){
-    var st=ENG.tradeStateAt(t,simT,j.market);
-    var stHtml=st.status==='rejected'?'<span class="neg">rejected</span>':st.status==='upcoming'?'<span class="muted">upcoming</span>':'open';
-    var cls2=st.status==='upcoming'?'tr-upcoming':st.status==='rejected'?'tr-rej':'tr-open';
-    var un=st.unrealized==null?'<span class="muted">\u2014</span>':'<span class="'+(st.unrealized>=0?'pos':'neg')+'">'+(st.unrealized>=0?'+':'')+money2(st.unrealized)+'</span>';
-    return '<tr class="'+cls2+'" data-ti="'+k+'"><td class="rankcell">'+(k+1)+'</td><td class="num">'+escH(fmtDTUTC(t.ts))+'</td><td>'+escH(t.pair)+
+    return '<tr data-ti="'+k+'"><td class="rankcell">'+(k+1)+'</td><td class="num">'+escH(fmtDTUTC(t.ts))+'</td><td>'+escH(t.pair)+
       '</td><td class="'+(t.side==='long'?'pos':'neg')+'">'+t.side+'</td>'+
       '<td class="num">'+Number(t.qty).toFixed(6)+'</td>'+
       '<td class="num">'+(t.fill_price==null?'\u2014':money2(t.fill_price))+'</td>'+
-      '<td class="st">'+stHtml+'</td><td class="num">'+un+'</td></tr>';
+      '<td class="st"><span class="stv"></span></td><td class="num"><span class="unv"></span></td></tr>';
   }).join('');
+  var rows=tb.querySelectorAll('tr'),i;
+  simInspectCells=[];
+  for(i=0;i<rows.length;i++)simInspectCells.push({tr:rows[i],
+    st:rows[i].querySelector('.stv'),un:rows[i].querySelector('.unv')});
+  simInspectSig='';simNetSig='';simNetCells=[];
+}
+
+/* "At this moment" panel + position inspector, all computed at the playhead T.
+   Per-frame work is textContent writes into cached cells only. */
+function updatePanel(){
+  if(!simD||!simMcells)return;
+  var j=simD.j,cap=simD.cap,tf=j.timeframe,i;
+  simClockEl.textContent=fmtDTUTC(simT)+' UTC';
+  simElapsedEl.textContent=ENG.fmtElapsed(simT-tf.from)+' into the replay';
+  var p=ENG.panelAt(simT,{points:j.points,cap:cap,trades:j.trades,market:j.market});
+  var cls=p.pnl>=0?'pos':'neg',sgn=p.pnl>=0?'+':'';
+  simMcells.eq.textContent=money2(p.equity);
+  simMcells.pnl.textContent=sgn+money2(p.pnl)+' ('+sgn+p.pnlPct.toFixed(1)+'%)';
+  simMcells.pnl.className='mv '+cls;
+  simMcells.dd.textContent=(p.drawdown*100).toFixed(1)+'%';
+  for(i=0;i<simMcells.px.length;i++){
+    var px=simMcells.px[i];
+    px.el.textContent=p.prices[px.pair]!=null?fmtPx(p.prices[px.pair]):'\u2014';
+  }
+  var frac=(simT-tf.from)/Math.max(1,tf.to-tf.from);
+  simProgEl.style.width=(frac*100).toFixed(1)+'%';
+  var states=[],sig='';
+  for(i=0;i<j.trades.length;i++){var st=ENG.tradeStateAt(j.trades[i],simT,j.market);states.push(st);sig+=st.status+';';}
+  if(sig!==simInspectSig){
+    simInspectSig=sig;
+    for(i=0;i<states.length;i++){
+      var c=simInspectCells[i];if(!c)continue;
+      var s2=states[i].status;
+      c.tr.className=s2==='upcoming'?'tr-upcoming':s2==='rejected'?'tr-rej':'tr-open';
+      c.st.textContent=s2;
+      c.st.className='stv '+(s2==='rejected'?'neg':s2==='open'?'pos':'muted');
+    }
+  }
+  for(i=0;i<states.length;i++){
+    var c2=simInspectCells[i];if(!c2)continue;
+    var un=states[i].unrealized;
+    c2.un.textContent=un==null?'\u2014':(un>=0?'+':'')+money2(un);
+    c2.un.className='unv '+(un==null?'muted':un>=0?'pos':'neg');
+  }
   var nets=ENG.netPositions(simT,j.trades,j.market);
+  var nsig=nets.map(function(n){return n.pair+':'+n.qty.toFixed(6);}).join('|');
   var np=document.getElementById('simNetPos');
-  if(!nets.length){np.textContent='No open positions at the playhead.';}
-  else{np.innerHTML=nets.map(function(n){
-    var dir=n.qty>0?'LONG':n.qty<0?'SHORT':'FLAT';
-    var un=n.unrealized==null?'\u2014':(n.unrealized>=0?'+':'')+money2(n.unrealized);
-    var cls3=n.unrealized==null?'':n.unrealized>=0?'pos':'neg';
-    return 'Net <b>'+escH(n.pair)+'</b>: '+dir+' '+Math.abs(n.qty).toFixed(6)+' @ avg '+money2(n.avgPrice)+
-      ' \u2192 unrealized <span class="'+cls3+'">'+un+'</span> <span class="muted">(indicative)</span>';
-  }).join('<br>');}
+  if(nsig!==simNetSig){
+    simNetSig=nsig;simNetCells=[];
+    if(!nets.length){np.textContent='No open positions at the playhead.';}
+    else{np.innerHTML=nets.map(function(n){
+      var dir=n.qty>0?'LONG':n.qty<0?'SHORT':'FLAT';
+      return 'Net <b>'+escH(n.pair)+'</b>: '+dir+' '+Math.abs(n.qty).toFixed(6)+' @ avg '+money2(n.avgPrice)+
+        ' \u2192 unrealized <span class="nunv"></span> <span class="muted">(indicative)</span>';
+    }).join('<br>');
+    var spans=np.querySelectorAll('.nunv');
+    for(var q=0;q<spans.length;q++)simNetCells.push(spans[q]);}
+  }
+  for(var q2=0;q2<nets.length&&q2<simNetCells.length;q2++){
+    var u2=nets[q2].unrealized,sp=simNetCells[q2];
+    sp.textContent=u2==null?'\u2014':(u2>=0?'+':'')+money2(u2);
+    sp.className='nunv '+(u2==null?'':u2>=0?'pos':'neg');
+  }
 }
 
 /* Scrub slider + event ticks. */
@@ -2548,7 +2698,12 @@ function simHoverTo(cv,clientX,clientY){
   var ts=Math.round(g.x0+frac*(g.x1-g.x0));
   simHoverTs=Math.max(tf.from,Math.min(simT,ts));
   simHoverXY={x:clientX-r.left,y:clientY-r.top};
-  updateTip();
+  /* Throttle tooltip rebuilds to one per animation frame — pointermove can
+     fire far faster than the screen refreshes. */
+  if(simTipQueued)return;
+  simTipQueued=true;
+  var raf=window.requestAnimationFrame||function(cb){return setTimeout(cb,16);};
+  raf(function(){simTipQueued=false;updateTip();});
 }
 function simHoverClear(){simHoverTs=null;simHoverXY=null;updateTip();}
 function simClickTo(cv,clientX,clientY){
@@ -2657,6 +2812,10 @@ function render(j,cap){
   simSpeed=parseFloat(document.getElementById('simSpeed').value)||1;
   endTour();
   buildTicks();
+  simCache=null;
+  buildMomentSkeleton();
+  buildInspector();
+  applyInspectDefault();
   drawMarket(document.getElementById('simMarketChart'));
   drawEquity(document.getElementById('simChart'));
   updatePanel();
@@ -2684,7 +2843,33 @@ document.getElementById('simStepB').addEventListener('click',function(){stepRepl
 document.getElementById('simStepF').addEventListener('click',function(){stepReplay(1);});
 document.getElementById('simPrevEv').addEventListener('click',function(){jumpTrade(-1);});
 document.getElementById('simNextEv').addEventListener('click',function(){jumpTrade(1);});
-document.getElementById('simSpeed').addEventListener('change',function(){simSpeed=parseFloat(this.value)||1;});
+document.getElementById('simInspectToggle').addEventListener('click',function(){
+  simInspectOpen=!simInspectOpen;
+  document.getElementById('simInspectBody').hidden=!simInspectOpen;
+  this.setAttribute('aria-expanded',String(simInspectOpen));
+  var c=this.querySelector('.caret');if(c)c.textContent=simInspectOpen?'\u25be':'\u25b8';
+});
+function applyInspectDefault(){
+  /* Keep the inspector open on desktop; collapse it on phones where vertical
+     space is precious. Applied fresh on every Run. */
+  try{simInspectOpen=!window.matchMedia||!window.matchMedia('(max-width:720px)').matches;}
+  catch(e){simInspectOpen=true;}
+  var body=document.getElementById('simInspectBody'),btn=document.getElementById('simInspectToggle');
+  if(body)body.hidden=!simInspectOpen;
+  if(btn){btn.setAttribute('aria-expanded',String(simInspectOpen));
+    var c=btn.querySelector('.caret');if(c)c.textContent=simInspectOpen?'\u25be':'\u25b8';}
+}
+/* Debounced resize: rebuild the prerender at the new layout size, then repaint. */
+var simResizeT=0;
+window.addEventListener('resize',function(){
+  if(simResizeT)clearTimeout(simResizeT);
+  simResizeT=setTimeout(function(){
+    simCache=null;
+    if(!simD)return;
+    drawMarket(document.getElementById('simMarketChart'));
+    drawEquity(document.getElementById('simChart'));
+  },150);
+});
 document.getElementById('simScrub').addEventListener('input',function(){
   if(!simD)return;
   var tf=simD.j.timeframe;

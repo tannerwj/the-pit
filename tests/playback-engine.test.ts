@@ -195,6 +195,27 @@ describe('SimPlayback engine', () => {
     expect(p.prices['BTC/USD']).toBeCloseTo(mpts[mpts.length - 1].price, 9);
   });
 
+  it('revealX: the render-path no-lookahead contract — the clip rect ends at the playhead X', async () => {
+    const E = await loadEngine();
+    // from=0, to=100000, w=800: pad=60000, x0=-60000, x1=160000, inner width 724.
+    expect(E.revealX(0, 0, 100000, 800)).toBeCloseTo(209.4545, 3);
+    expect(E.revealX(50000, 0, 100000, 800)).toBeCloseTo(374, 9);
+    expect(E.revealX(100000, 0, 100000, 800)).toBeCloseTo(538.5454, 3);
+    // The clip at the window end stops before the right label gutter (w-64):
+    // axis labels live outside the revealed data region.
+    expect(E.revealX(100000, 0, 100000, 800)).toBeLessThan(800 - 64);
+    // Monotonic: the reveal rect can only ever extend as T advances, so the
+    // prerendered full series is never exposed ahead of the playhead.
+    let prev = -Infinity;
+    for (const T of [0, 25000, 50000, 75000, 100000]) {
+      const x = E.revealX(T, 0, 100000, 800);
+      expect(x).toBeGreaterThan(prev);
+      prev = x;
+    }
+    // A wider chart keeps the same mapping shape (scales with w).
+    expect(E.revealX(50000, 0, 100000, 1600)).toBeCloseTo(12 + (110000 / 220000) * (1600 - 76), 6);
+  });
+
   it('playMs scales with speed and floors at 2s; fmtElapsed formats', async () => {
     const E = await loadEngine();
     expect(E.playMs(0, 45000, 1)).toBe(45000);

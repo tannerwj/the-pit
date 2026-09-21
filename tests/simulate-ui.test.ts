@@ -307,10 +307,11 @@ describe('/simulate page', () => {
     expect(tabs[1].classList.contains('on')).toBe(true);
     expect(mkt.dataset.markers).toBe('2');
 
-    // Hovering shows the tooltip with equity info.
+    // Hovering shows the tooltip with equity info (throttled to one paint per frame).
     mkt.dispatchEvent(
       new window.MouseEvent('pointermove', { bubbles: true, clientX: 400, clientY: 100 }),
     );
+    await tick();
     const tip = document.getElementById('simTip')!;
     expect(tip.style.display).toBe('block');
     expect(tip.textContent).toContain('Equity');
@@ -471,5 +472,110 @@ describe('/simulate page', () => {
     expect(document.getElementById('simTourStep')!.textContent).toContain('Step 5 of 6');
     click('simTourEnd');
     expect(bar.hidden).toBe(true);
+  });
+
+  it('smooth replay: prerendered reveal path, no per-frame DOM rebuilds, hot speed change, scrub pauses, collapsible inspector', async () => {
+    const gts = [Date.UTC(2026, 5, 2, 3, 0), Date.UTC(2026, 5, 4, 1, 0), Date.UTC(2026, 5, 5, 18, 0), Date.UTC(2026, 5, 8, 14, 0)];
+    const gsides = ['long', 'short', 'long', 'short'] as const;
+    const gnot = [2000, 1500, 1000, 800];
+    const specs = gts.map((timestamp, i) => ({
+      pair: 'BTC/USD',
+      side: gsides[i],
+      notional: gnot[i],
+      timestamp,
+    }));
+    const { window, document, ctxs } = await loadPage(specs, {
+      from: Date.UTC(2026, 5, 1, 0, 0),
+      to: Date.UTC(2026, 5, 20, 0, 0),
+    });
+    document.getElementById('simExample')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    const mkt = document.getElementById('simMarketChart')!;
+    const eq = document.getElementById('simChart')!;
+    for (const [cv, h] of [[mkt, 190], [eq, 210]] as const) {
+      Object.defineProperty(cv, 'clientWidth', { value: 800, configurable: true });
+      Object.defineProperty(cv, 'clientHeight', { value: h, configurable: true });
+      Object.defineProperty(cv, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 800, height: h, right: 800, bottom: h }),
+        configurable: true,
+      });
+    }
+    document.getElementById('simRun')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    await tick();
+    expect(document.getElementById('simResults')!.hidden).toBe(false);
+
+    // The cheap reveal path is active: prerendered series exposed through a
+    // clip rect (drawImage + clip), not a per-frame polyline redraw.
+    const drawn = ctxs.flatMap((c) => c.calls.map((call) => call[0]));
+    expect(drawn).toContain('drawImage');
+    expect(drawn).toContain('clip');
+    expect(drawn).toContain('rect');
+
+    const click = (id: string) =>
+      document.getElementById(id)!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    const clock = () => document.getElementById('simClock')!.textContent!;
+    const play = document.getElementById('simPlay')!;
+
+    // Inspector rows are built once per Run: stepping between trades keeps the
+    // very same <tr> nodes (classes + text update in place, no innerHTML churn).
+    click('simReset');
+    const row0 = document.querySelector('#simInspectRows tr')!;
+    click('simStepF');
+    expect(document.querySelector('#simInspectRows tr')).toBe(row0);
+    // ...and jumping to the first trade flips its status in place.
+    click('simNextEv');
+    expect(clock()).toContain('Jun 2');
+    expect(document.querySelector('#simInspectRows tr')).toBe(row0);
+    expect(row0.classList.contains('tr-open')).toBe(true);
+    expect((row0.querySelector('.stv') as HTMLElement).textContent).toBe('open');
+    // Unrealized P&L is live (long filled above mid + slippage -> small loss at fill).
+    const un0 = (row0.querySelector('.unv') as HTMLElement).textContent!;
+    expect(un0).not.toBe('—');
+    expect(un0).toMatch(/^\$-/); // negative: long filled above mid + slippage
+    // Moment panel skeleton cells exist and update in place too.
+    expect(document.getElementById('simMvEq')).not.toBeNull();
+    expect((document.getElementById('simMvPnl') as HTMLElement).textContent).not.toBe('—');
+
+    // Speed change mid-play hot-restarts the loop: still playing, playhead keeps
+    // advancing from where it was (no jump back to the start).
+    click('simReset');
+    const cStart = clock();
+    click('simPlay');
+    expect(play.innerHTML).toContain('\u23f8');
+    await tick(150);
+    const c0 = clock();
+    expect(c0).not.toBe(cStart); // the loop is advancing
+    const speed = document.getElementById('simSpeed') as unknown as HTMLSelectElement;
+    speed.value = '4';
+    speed.dispatchEvent(new window.Event('change', { bubbles: true }));
+    await tick(150);
+    expect(play.innerHTML).toContain('\u23f8'); // still playing
+    expect(clock()).not.toBe(c0); // kept advancing, not restarted
+    click('simPlay'); // pause for a clean state
+    expect(play.innerHTML).toContain('\u25b6');
+
+    // Dragging the scrub slider pauses playback — the loop never fights the thumb.
+    click('simReset');
+    click('simPlay');
+    expect(play.innerHTML).toContain('\u23f8');
+    const sc = document.getElementById('simScrub') as HTMLInputElement;
+    sc.value = '500';
+    sc.dispatchEvent(new window.Event('input', { bubbles: true }));
+    expect(play.innerHTML).toContain('\u25b6');
+
+    // Inspector collapses/expands without losing its rows.
+    const toggle = document.getElementById('simInspectToggle')!;
+    const body = document.getElementById('simInspectBody') as HTMLElement;
+    expect(body.hidden).toBe(false);
+    toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(body.hidden).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(body.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelectorAll('#simInspectRows tr').length).toBe(4);
   });
 });
