@@ -84,7 +84,7 @@ interface CannedSpec {
   timestamp: number;
 }
 
-async function loadPage(cannedSpecs?: CannedSpec[]) {
+async function loadPage(cannedSpecs?: CannedSpec[], bodyExtra?: Record<string, unknown>) {
   resetSimulateRateLimit();
   const env = mockDb();
 
@@ -101,7 +101,7 @@ async function loadPage(cannedSpecs?: CannedSpec[]) {
   const simReq = new Request('https://the-pit.twj.workers.dev/api/v1/simulate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ starting_capital: 10000, trades: specs }),
+    body: JSON.stringify({ starting_capital: 10000, trades: specs, ...(bodyExtra ?? {}) }),
   });
   const simRes = await postSimulate(simReq, env);
   expect(simRes.status).toBe(200);
@@ -163,7 +163,7 @@ describe('/simulate page', () => {
     expect(document.querySelector('.links a[href="/simulate"]')).not.toBeNull();
   });
 
-  it('Load example -> 4 trade rows; Run -> results render in place, chart draws, no reload', async () => {
+  it('Guided example -> 4 annotated June trades + timeframe; Run -> results render in place, no reload', async () => {
     const { window, document, seen, ctxs } = await loadPage();
     const hrefBefore = window.location.href;
 
@@ -178,6 +178,13 @@ describe('/simulate page', () => {
       return on.getAttribute('data-side');
     });
     expect(sides).toEqual(['long', 'short', 'long', 'short']);
+    // The guided example prefills the June 2026 timeframe.
+    const fromEl = document.getElementById('simFrom') as HTMLInputElement;
+    const toEl = document.getElementById('simTo') as HTMLInputElement;
+    expect(fromEl.value).toContain('2026-06-01');
+    expect(toEl.value).toContain('2026-06-20');
+    // The empty-state mini-guide hides once trades exist.
+    expect((document.getElementById('simGuide') as HTMLElement).hidden).toBe(true);
 
     // Give the canvas a size so the chart draws (jsdom reports 0 otherwise).
     const cv = document.getElementById('simChart')!;
@@ -189,12 +196,20 @@ describe('/simulate page', () => {
     );
     await tick();
 
-    // The request went out as a single POST with the built trades.
+    // The request went out as a single POST with the guided trades + timeframe.
     expect(seen.url).toContain('/api/v1/simulate');
     const sent = JSON.parse(seen.body!);
     expect(sent.starting_capital).toBe(10000);
     expect(sent.trades.length).toBe(4);
     expect(sent.trades.every((t: { pair: string }) => t.pair === 'BTC/USD')).toBe(true);
+    expect(sent.trades.map((t: { timestamp: number }) => t.timestamp)).toEqual([
+      Date.UTC(2026, 5, 2, 3, 0),
+      Date.UTC(2026, 5, 4, 1, 0),
+      Date.UTC(2026, 5, 5, 18, 0),
+      Date.UTC(2026, 5, 8, 14, 0),
+    ]);
+    expect(sent.from).toBe(Date.UTC(2026, 5, 1, 0, 0));
+    expect(sent.to).toBe(Date.UTC(2026, 5, 20, 0, 0));
 
     // Results render without a page reload.
     expect(window.location.href).toBe(hrefBefore);
@@ -249,7 +264,7 @@ describe('/simulate page', () => {
     expect(document.getElementById('simResults')!.hidden).toBe(true);
   });
 
-  it('replay charts: pair tabs switch series, markers drawn, scrub shows live P&L, play toggles', async () => {
+  it('replay charts: pair tabs switch series, markers drawn, tooltip, play toggles, row hover', async () => {
     const span = MX - MN;
     const specs = [0.18, 0.4, 0.62, 0.85].map((f, i) => ({
       pair: i % 2 === 0 ? 'BTC/USD' : 'ETH/USD',
@@ -292,28 +307,19 @@ describe('/simulate page', () => {
     expect(tabs[1].classList.contains('on')).toBe(true);
     expect(mkt.dataset.markers).toBe('2');
 
-    // Scrubbing the chart shows the live P&L readout + tooltip.
+    // Hovering shows the tooltip with equity info.
     mkt.dispatchEvent(
       new window.MouseEvent('pointermove', { bubbles: true, clientX: 400, clientY: 100 }),
     );
-    const live = document.getElementById('simLive')!.textContent!;
-    expect(live).toContain('P&L');
-    expect(live).toMatch(/\$[\d,]+\.\d{2}/);
-    expect(live).toMatch(/[+-]\d+\.\d%/);
     const tip = document.getElementById('simTip')!;
     expect(tip.style.display).toBe('block');
     expect(tip.textContent).toContain('Equity');
     mkt.dispatchEvent(new window.MouseEvent('pointerleave', { bubbles: true }));
     expect(tip.style.display).toBe('none');
 
-    // Play button toggles.
-    const play = document.getElementById('simPlay')!;
-    play.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    expect(play.innerHTML).toContain('Pause');
-    play.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    expect(play.innerHTML).toContain('Play replay');
-
-    // Hovering a trade row highlights its marker.
+    // Row hover highlights the marker - checked before the play toggles below,
+    // because pressing play while the playhead sits at the end restarts the
+    // replay from the beginning, hiding future markers (progressive reveal).
     const rows = document.querySelectorAll('#simTradeRows tr');
     expect(rows.length).toBe(4);
     (rows[1] as HTMLElement).dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
@@ -322,5 +328,148 @@ describe('/simulate page', () => {
       .getElementById('simTradeRows')!
       .dispatchEvent(new window.MouseEvent('mouseleave', { bubbles: true }));
     expect(mkt.dataset.hit).toBe('-1');
+
+    // Play button toggles between play and pause glyphs.
+    const play = document.getElementById('simPlay')!;
+    expect(play.innerHTML).toContain('\u25b6');
+    play.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(play.innerHTML).toContain('\u23f8');
+    play.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    expect(play.innerHTML).toContain('\u25b6');
+  });
+
+  it('transport: reset/step/event-jump/scrub/keyboard update the moment panel; tour walks the guided scenario', async () => {
+    // Guided-scenario trades on the real June-2026 window.
+    const gts = [Date.UTC(2026, 5, 2, 3, 0), Date.UTC(2026, 5, 4, 1, 0), Date.UTC(2026, 5, 5, 18, 0), Date.UTC(2026, 5, 8, 14, 0)];
+    const gsides = ['long', 'short', 'long', 'short'] as const;
+    const gnot = [2000, 1500, 1000, 800];
+    const specs = gts.map((timestamp, i) => ({
+      pair: 'BTC/USD',
+      side: gsides[i],
+      notional: gnot[i],
+      timestamp,
+    }));
+    const { window, document } = await loadPage(specs, {
+      from: Date.UTC(2026, 5, 1, 0, 0),
+      to: Date.UTC(2026, 5, 20, 0, 0),
+    });
+
+    document.getElementById('simExample')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    const mkt = document.getElementById('simMarketChart')!;
+    const eq = document.getElementById('simChart')!;
+    for (const [cv, h] of [[mkt, 250], [eq, 280]] as const) {
+      Object.defineProperty(cv, 'clientWidth', { value: 800, configurable: true });
+      Object.defineProperty(cv, 'clientHeight', { value: h, configurable: true });
+      Object.defineProperty(cv, 'getBoundingClientRect', {
+        value: () => ({ left: 0, top: 0, width: 800, height: h, right: 800, bottom: h }),
+        configurable: true,
+      });
+    }
+    document.getElementById('simRun')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    await tick();
+    expect(document.getElementById('simResults')!.hidden).toBe(false);
+
+    const clock = () => document.getElementById('simClock')!.textContent!;
+    const click = (id: string) =>
+      document.getElementById(id)!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+
+    // All transport controls are present, incl. speed selector and scrub slider.
+    for (const id of ['simReset', 'simPrevEv', 'simStepB', 'simPlay', 'simStepF', 'simNextEv', 'simSpeed', 'simScrub', 'simTourBtn']) {
+      expect(document.getElementById(id), id).not.toBeNull();
+    }
+    // Event ticks: one per filled trade.
+    expect(document.querySelectorAll('#simTicks .simtick').length).toBe(4);
+
+    // Moment panel shows equity / P&L / drawdown at the playhead (window end after render).
+    expect(clock()).toContain('Jun 20');
+    const moment = document.getElementById('simMoment')!.textContent!;
+    expect(moment).toContain('Equity');
+    expect(moment).toContain('P&L');
+    expect(moment).toContain('Drawdown from peak');
+
+    // Clicking a revealed fill marker jumps the playhead straight to that trade.
+    const marks = (mkt as unknown as { _simMarks: Array<{ x: number; y: number; ts: number }> })._simMarks.slice();
+    expect(marks.length).toBe(4);
+    click('simReset');
+    expect(clock()).toContain('Jun 1');
+    mkt.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true, clientX: marks[3].x, clientY: marks[3].y }),
+    );
+    expect(clock()).toContain('Jun 8');
+
+    // Reset -> playhead at the start; every trade is "upcoming" in the inspector.
+    click('simReset');
+    expect(clock()).toContain('Jun 1');
+    const inspRows = document.querySelectorAll('#simInspectRows tr');
+    expect(inspRows.length).toBe(4);
+    expect(document.querySelectorAll('#simInspectRows tr.tr-upcoming').length).toBe(4);
+    expect(document.getElementById('simNetPos')!.textContent).toContain('No open positions');
+
+    // Step forward moves the playhead.
+    const before = clock();
+    click('simStepF');
+    expect(clock()).not.toBe(before);
+
+    // Jump to next trade event lands on the first fill; its row flips to open.
+    click('simReset');
+    click('simNextEv');
+    expect(clock()).toContain('Jun 2');
+    expect(document.querySelectorAll('#simInspectRows tr.tr-open').length).toBe(1);
+    expect(document.querySelectorAll('#simInspectRows tr.tr-upcoming').length).toBe(3);
+    // Jump back goes to the start again.
+    click('simPrevEv');
+    expect(clock()).toContain('Jun 1');
+
+    // Scrub slider moves the playhead.
+    const sc = document.getElementById('simScrub') as HTMLInputElement;
+    const c0 = clock();
+    sc.value = '500';
+    sc.dispatchEvent(new window.Event('input', { bubbles: true }));
+    expect(clock()).not.toBe(c0);
+
+    // Keyboard: ArrowRight steps, Space toggles play.
+    const c1 = clock();
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(clock()).not.toBe(c1);
+    const play = document.getElementById('simPlay')!;
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
+    expect(play.innerHTML).toContain('\u23f8');
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true }));
+    expect(play.innerHTML).toContain('\u25b6');
+
+    // Clicking the chart jumps the playhead there.
+    const c2 = clock();
+    mkt.dispatchEvent(new window.MouseEvent('click', { bubbles: true, clientX: 400, clientY: 100 }));
+    expect(clock()).not.toBe(c2);
+
+    // Speed selector changes the value the player reads.
+    const speed = document.getElementById('simSpeed') as unknown as HTMLSelectElement;
+    speed.value = '4';
+    speed.dispatchEvent(new window.Event('change', { bubbles: true }));
+    expect(speed.value).toBe('4');
+
+    // Guided tour: intro -> trade steps with captions -> outro.
+    click('simTourBtn');
+    const bar = document.getElementById('simTourBar')!;
+    expect(bar.hidden).toBe(false);
+    expect(document.getElementById('simTourStep')!.textContent).toContain('Step 1 of 6');
+    expect(document.getElementById('simTourCap')!.textContent).toContain('June 2026');
+    expect(clock()).toContain('Jun 1');
+    click('simTourNext');
+    expect(document.getElementById('simTourStep')!.textContent).toContain('Step 2 of 6');
+    expect(document.getElementById('simTourCap')!.textContent).toContain('Bet 1');
+    expect(clock()).toContain('Jun 2');
+    // Walk to the outro.
+    for (let i = 0; i < 4; i++) click('simTourNext');
+    expect(document.getElementById('simTourStep')!.textContent).toContain('Step 6 of 6');
+    expect(document.getElementById('simTourCap')!.textContent).toContain('Final score');
+    click('simTourBack');
+    expect(document.getElementById('simTourStep')!.textContent).toContain('Step 5 of 6');
+    click('simTourEnd');
+    expect(bar.hidden).toBe(true);
   });
 });

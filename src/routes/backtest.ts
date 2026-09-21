@@ -274,6 +274,8 @@ export async function runReplay(
       history:
         '1-minute live bid/ask from 2026-09-20; hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread)',
       writes: 'none — backtests never create orders, positions, or entries',
+      replay:
+        'position-inspector values during replay are indicative — marked at the nearest price at-or-before the playhead, never future data',
     },
   };
 }
