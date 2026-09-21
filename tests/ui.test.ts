@@ -304,6 +304,61 @@ describe('wave-2 dashboard polish', () => {
     expect(html).toContain('opens soon');
   });
 
+  const OPEN_SEASON = {
+    id: 'season-open',
+    name: 'Season 1',
+    pair: 'BTC/USD',
+    starts_at: 1790044104442,
+    ends_at: 1791253704442,
+    status: 'open',
+  };
+
+  function openSeasonHandlers(): Handler[] {
+    // No live season, but an official season with registration open.
+    const handlers = pageHandlers().filter(
+      (h) => !h.match("FROM seasons WHERE status = 'live'"),
+    );
+    handlers.unshift({
+      match: (s) => s.includes("FROM seasons WHERE status = 'live'"),
+      first: null,
+    });
+    handlers.unshift({
+      match: (s) => s.includes("FROM seasons WHERE status = 'open'"),
+      first: OPEN_SEASON,
+    });
+    return handlers;
+  }
+
+  it('open-registration banner shows the registration-open countdown', async () => {
+    const html = await text(await homePage(mockDb(openSeasonHandlers())));
+    expect(html).toContain('registration open');
+    expect(html).toContain('trading starts in');
+    expect(html).toContain(
+      `data-ends="${OPEN_SEASON.starts_at}"`,
+    );
+    expect(html).not.toContain('No live season');
+  });
+
+  it('live season takes precedence over an open season in the banner', async () => {
+    // pageHandlers() already returns a live season; add an open one too.
+    const handlers = pageHandlers();
+    handlers.unshift({
+      match: (s) => s.includes("FROM seasons WHERE status = 'open'"),
+      first: OPEN_SEASON,
+    });
+    const html = await text(await homePage(mockDb(handlers)));
+    expect(html).toContain('trading window ends in');
+    expect(html).not.toContain('registration open');
+  });
+
+  it('leaderboard defaults to the open season when nothing is live', async () => {
+    const html = await text(
+      await leaderboardPage(mockDb(openSeasonHandlers()), null),
+    );
+    expect(html).toContain('Season 1');
+    expect(html).not.toContain('No seasons yet.');
+  });
+
   it('leaderboard has rank badges and expandable alpha breakdowns', async () => {
     const html = await text(
       await leaderboardPage(mockDb(pageHandlers()), 'season-1'),

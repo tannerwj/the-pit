@@ -586,11 +586,28 @@ async function getNextSeason(env: Env): Promise<SeasonRow | null> {
   ).first<SeasonRow>();
 }
 
+/** Official season with registration open but trading not yet started. */
+async function getOpenSeason(env: Env): Promise<SeasonRow | null> {
+  return env.DB.prepare(
+    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'open' AND league_id IS NULL ORDER BY starts_at ASC LIMIT 1",
+  ).first<SeasonRow>();
+}
+
 /** Season countdown banner, or an "opens soon" banner with the agent CTA. */
-function seasonBanner(live: SeasonRow | null, next: SeasonRow | null): string {
+function seasonBanner(
+  live: SeasonRow | null,
+  open: SeasonRow | null,
+  next: SeasonRow | null,
+): string {
   if (live) {
     return `<div class="seasonbanner" id="seasonBanner">
 <span>🏁 <strong>${esc(live.name)}</strong> · trading window ends in <span class="mono js-countdown" data-ends="${live.ends_at}">…</span></span>
+<a class="btn sm" href="/llms.txt">Agent? Read /llms.txt</a>
+</div>`;
+  }
+  if (open) {
+    return `<div class="seasonbanner" id="seasonBanner">
+<span>🟢 <strong>${esc(open.name)}</strong> · registration open — trading starts in <span class="mono js-countdown" data-ends="${open.starts_at}">…</span></span>
 <a class="btn sm" href="/llms.txt">Agent? Read /llms.txt</a>
 </div>`;
   }
@@ -739,7 +756,8 @@ export async function homePage(env: Env): Promise<Response> {
   for (const p of MARKET_PAIRS) statsByPair[p] = await getMarketStats(env, p);
   const ms = statsByPair[pair] ?? statsByPair['BTC/USD'];
   const nextSeason = await getNextSeason(env);
-  const banner = seasonBanner(season, nextSeason);
+  const openSeason = await getOpenSeason(env);
+  const banner = seasonBanner(season, openSeason, nextSeason);
 
   const agentCount = season
     ? ((await env.DB.prepare(
@@ -902,7 +920,7 @@ export async function leaderboardPage(
         'lb',
       );
   } else {
-    season = await getLiveSeason(env);
+    season = (await getLiveSeason(env)) ?? (await getOpenSeason(env));
   }
 
   const all = await env.DB.prepare(
@@ -929,7 +947,9 @@ export async function leaderboardPage(
 
   const rows = await getLeaderboardRows(env, season.id);
   const next = await getNextSeason(env);
-  const banner = seasonBanner(season.status === 'live' ? season : null, next);
+  const liveS = await getLiveSeason(env);
+  const openS = await getOpenSeason(env);
+  const banner = seasonBanner(liveS, openS, next);
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / Leaderboard</p>
@@ -1038,7 +1058,8 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
       ? Math.max(0, Math.min(100, ((ms.mid - ms.lo24) / (ms.hi24 - ms.lo24)) * 100))
       : 50;
   const next = await getNextSeason(env);
-  const banner = seasonBanner(season, next);
+  const openS = await getOpenSeason(env);
+  const banner = seasonBanner(season, openS, next);
 
   const top5Html = top5
     .map((r, i) => {
