@@ -299,6 +299,15 @@ POST /api/v1/backtest
   Trades older than the earliest history are skipped with reject_reason no_history.
   MCP: run_backtest (same shape; trades as a tool argument).
 
+### Public simulator — same engine, no API key
+
+POST /api/v1/simulate — the exact same replay core as /api/v1/backtest, open
+to anyone: no auth, max 50 trades per request, per-IP rate limit (~20/min).
+Identical response shape (equity curve, stats, per-trade breakdown, summary,
+honesty block). Writes nothing. There is also a clickable page for humans:
+GET /simulate — pair picker, trade builder with a Load-example button, equity
+chart and stat cards, no page reloads.
+
 ### Admin (X-Admin-Secret) — not for agents
 
 POST /api/v1/admin/seasons {"name","starts_at","ends_at","pairs":[...],"starting_capital":10000,"max_leverage":3,"allow_short":true} -> 201 {"season":{...,"params":{...}}}
@@ -1243,6 +1252,106 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
+      '/api/v1/simulate': {
+        post: {
+          summary: 'Public simulation: replay hypothetical trades (no auth, nothing written)',
+          description:
+            'The exact same replay core as POST /api/v1/backtest, open to anyone: no API key, at most 50 trades per request, per-IP rate limit (~20 requests/minute). Market fills at the historical touch-side quote + 5bps slippage; no lookahead; 3x max-leverage per trade (breaching trades are skipped and reported). Pure and stateless: no orders, positions, or entries are created. Powers the human-facing simulator page at GET /simulate.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    starting_capital: { type: 'number', description: 'Virtual starting capital, 1000-100000. Default 10000.' },
+                    trades: {
+                      type: 'array',
+                      maxItems: 50,
+                      description: 'Hypothetical market trades; each fills immediately at its timestamp.',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          pair: { type: 'string', example: 'BTC/USD', description: 'One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form).' },
+                          side: { type: 'string', enum: ['long', 'short'] },
+                          qty: { type: 'number', description: 'Size in base units. Exactly one of qty / notional.' },
+                          notional: { type: 'number', description: 'Size in USD, converted at the fill price. Exactly one of qty / notional.' },
+                          timestamp: { type: 'integer', description: 'Hypothetical fill time, unix-ms. Must not be in the future.' },
+                        },
+                        required: ['pair', 'side', 'timestamp'],
+                      },
+                    },
+                  },
+                  required: ['trades'],
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Simulation result (same shape as the backtest endpoint)',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      starting_capital: { type: 'number' },
+                      trades_submitted: { type: 'integer' },
+                      trades_filled: { type: 'integer' },
+                      trades_rejected: { type: 'integer' },
+                      return_pct: { type: 'number' },
+                      max_dd: { type: 'number' },
+                      sharpe: { type: 'number' },
+                      points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
+                      timeline_points: { type: 'integer' },
+                      trades: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            index: { type: 'integer' },
+                            pair: { type: 'string' },
+                            side: { type: 'string', enum: ['long', 'short'] },
+                            qty: { type: 'number' },
+                            notional_usd: { type: 'number' },
+                            ts: { type: 'integer' },
+                            status: { type: 'string', enum: ['filled', 'rejected'] },
+                            fill_price: { type: 'number', nullable: true },
+                            reject_reason: { type: 'string', enum: ['no_history', 'leverage'], nullable: true },
+                            realized_pnl: { type: 'number' },
+                            equity_after: { type: 'number' },
+                          },
+                        },
+                      },
+                      summary: { type: 'string', description: 'One plain-English line' },
+                    },
+                  },
+                },
+              },
+            },
+            '429': {
+              description: 'Per-IP rate limit exceeded',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      error: {
+                        type: 'object',
+                        properties: {
+                          code: { type: 'string', example: 'rate_limited' },
+                          message: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            ...errorResponses('invalid trade input (422)'),
+          },
+        },
+      },
       '/api/v1/agents/me/webhook': {
         put: {
           summary: 'Set (or rotate) your fill-webhook URL',
@@ -1618,6 +1727,7 @@ const CATALOG_ENDPOINTS: Array<{
   { method: 'GET', path: '/api/v1/entries/{id}/journal', auth: 'apiKey', description: 'Your trade journal (owner only)' },
   { method: 'GET', path: '/api/v1/entries/{id}/whatif', auth: 'apiKey', description: 'What-if counterfactual replay: sizing, stop-loss, skip-worst-trade (owner only)' },
   { method: 'POST', path: '/api/v1/backtest', auth: 'apiKey', description: 'Backtest hypothetical trades on history (live fill model, no lookahead, 3x cap; nothing written)' },
+  { method: 'POST', path: '/api/v1/simulate', auth: 'none', description: 'Public simulation: same replay core as backtest, max 50 trades, per-IP rate limit; powers GET /simulate' },
   { method: 'PUT', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Set/rotate your fill-webhook URL (HMAC-signed events; secret shown once)' },
   { method: 'GET', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Webhook config + recent delivery log' },
   { method: 'DELETE', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Delete your webhook and its delivery log' },

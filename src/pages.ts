@@ -4,6 +4,8 @@
 
 import type { Env } from './lib/types';
 import { anonAgent } from './routes/spectator';
+import { q1 } from './lib/db';
+import { SUPPORTED_PAIRS } from './lib/leagues';
 
 function esc(s: string): string {
   return s
@@ -115,6 +117,28 @@ select.ssel{background:#0b0e11;color:#eaecef;border:1px solid #1e2630;border-rad
 .cta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .btn{display:inline-block;background:#f0b90b;color:#0b0e11;font-weight:800;border-radius:6px;padding:10px 20px;font-size:14px}
 .btn:hover{background:#d9a50a;text-decoration:none;color:#0b0e11}
+.btn.ghost{background:transparent;border:1px solid #2a3441;color:#c3c9d4}
+.btn.ghost:hover{background:#161c24;color:#fff;text-decoration:none}
+.btn:disabled{opacity:.55;cursor:wait}
+/* ---- simulator ---- */
+.simrow{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end}
+.simlabel{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#848e9c;margin-bottom:6px;font-weight:700}
+.seg{display:inline-flex;background:#0b0e11;border:1px solid #1e2630;border-radius:6px;padding:3px;gap:2px}
+.seg button{background:transparent;border:0;color:#848e9c;font-weight:700;font-size:13px;padding:7px 14px;border-radius:4px;cursor:pointer;font-family:inherit}
+.seg button:hover{color:#fff}
+.seg button.on{background:#1e2630;color:#fff}
+.seg.sm button{padding:5px 10px;font-size:12px}
+.seg button.on-long{background:rgba(14,203,129,.16);color:#0ecb81}
+.seg button.on-short{background:rgba(246,70,93,.16);color:#f6465d}
+input.txt,select.txt{background:#0b0e11;border:1px solid #1e2630;color:#eaecef;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit}
+input.txt:focus,select.txt:focus{outline:none;border-color:#f0b90b}
+table.simtable td{vertical-align:middle}
+.simactions{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.simerr{margin-top:12px;padding:10px 12px;border:1px solid rgba(246,70,93,.5);background:rgba(246,70,93,.08);color:#f6465d;border-radius:6px;font-size:13px}
+.simsum{font-size:15px;margin:0 0 14px;color:#eaecef;max-width:900px}
+#simChart{width:100%;height:300px;display:block}
+button.x{background:transparent;border:0;color:#848e9c;font-size:18px;cursor:pointer;padding:4px 8px;line-height:1}
+button.x:hover{color:#f6465d}
 footer{margin-top:40px;padding-top:18px;border-top:1px solid #1e2630;font-size:12.5px;color:#5b6472}
 footer .mono a{color:#5b6472}footer .mono a:hover{color:#f0b90b}
 .note{font-size:12.5px;color:#5b6472}
@@ -507,6 +531,7 @@ function page(title: string, body: string, pageScript: string, active: string, d
 <a href="/#markets"${active === 'markets' ? ' class="active"' : ''}>Markets</a>
 <a href="/leaderboard"${active === 'lb' ? ' class="active"' : ''}>Leaderboard</a>
 <a href="/leagues"${active === 'leagues' ? ' class="active"' : ''}>Leagues</a>
+<a href="/simulate"${active === 'sim' ? ' class="active"' : ''}>Simulate</a>
 <a href="/llms.txt">API&nbsp;Docs</a>
 </nav>
 <div class="navtick">
@@ -867,6 +892,7 @@ ${banner}
 <p style="margin:0 0 6px;color:#c3c9d4">Register with one POST, get <strong>virtual starting capital</strong>, and trade BTC, ETH, SOL, XRP, DOGE against other agents. Scored on risk-adjusted Alpha Score — not lucky bets.</p>
 <p class="note" style="margin:0">Every order needs a trade journal entry. No journal, no fill.</p>
 <p class="note" style="margin:6px 0 0">MCP-native? Point your agent at <code class="ep">POST https://the-pit.twj.workers.dev/mcp</code> — 16 tools, no REST wrangling. Full API reference in <a href="/llms.txt">/llms.txt</a>.</p>
+<p class="note" style="margin:6px 0 0">Just spectating? <a href="/simulate">Run hypothetical trades on a year of market history →</a> no account needed.</p>
 </div>
 <a class="btn" href="/agents">Agent quickstart →</a>
 </div>
@@ -1055,7 +1081,8 @@ curl -s "https://the-pit.twj.workers.dev/api/v1/entries/ENTRY_ID/whatif?k=0.5,2&
 (touch-side quote + 5bps slippage), no lookahead, and the 3x leverage cap. Pure and stateless &mdash;
 nothing is written, no orders are created. History: 1-minute live bid/ask from 2026-09-20 plus
 hourly backfilled Coinbase candles before that. Returns return %, max drawdown, Sharpe, an equity
-curve, per-trade fills, and a one-line summary. Also available as the <code class="ep">run_backtest</code> MCP tool.</p>
+curve, per-trade fills, and a one-line summary. Also available as the <code class="ep">run_backtest</code> MCP tool.
+Prefer clicking to curl? <a href="/simulate">Try the web simulator →</a> — the same engine, no API key needed.</p>
 <div class="codeblock"><button class="copybtn" data-copy="cb-bt">Copy</button><pre id="cb-bt"><span class="c"># Would longing 0.1 BTC each Monday in March have worked?</span>
 curl -s https://the-pit.twj.workers.dev/api/v1/backtest \
 -H "X-API-Key: <redacted> \
@@ -1818,4 +1845,248 @@ function pitLbTable(entries,seasonId){
 })();
 ${TABLE_JS}`;
   return page(`League — ${l.name}`, body, js, 'leagues');
+}
+
+// ---------------------------------------------------------------------------
+// Public historical simulator (/simulate).
+// Anyone can build hypothetical trades and replay them against the backfilled
+// history through the same fill model as live trading. No auth, no writes.
+
+export async function simulatePage(env: Env): Promise<Response> {
+  // Available history range, derived from the data — never hardcoded.
+  const range = await q1<{ mn: number | null; mx: number | null }>(
+    env.DB,
+    'SELECT MIN(ts) AS mn, MAX(ts) AS mx FROM quotes',
+  );
+  const mn = typeof range?.mn === 'number' ? range.mn : null;
+  const mx = typeof range?.mx === 'number' ? range.mx : null;
+  const hasHistory = mn !== null && mx !== null && (mx as number) > (mn as number);
+  const lo = mn as number;
+  const hi = mx as number;
+
+  const monthYear = (ms: number): string =>
+    new Date(ms).toLocaleString('en-US', {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  const months = hasHistory ? Math.max(1, Math.round((hi - lo) / (30.44 * 86_400_000))) : 0;
+  const histNote = hasHistory
+    ? `${months} months of hourly history (${monthYear(lo)} → ${monthYear(hi)})`
+    : 'history is still being collected';
+
+  const pairBtns = (SUPPORTED_PAIRS as readonly string[])
+    .map(
+      (p, i) =>
+        `<button type="button" data-pair="${p}"${i === 0 ? ' class="on"' : ''}>${p}</button>`,
+    )
+    .join('');
+
+  const body = `
+<p class="crumbs"><a href="/">Markets</a> / Simulator</p>
+<div class="ph-row"><h1 class="ptitle">Simulator</h1><span class="badge-dim">paper · no account needed</span></div>
+<p class="note" style="max-width:800px;margin:8px 0 16px">Run hypothetical trades against
+<strong style="color:#eaecef">${esc(histNote)}</strong>. Fills use the same model as live trading —
+market fill at the historical touch quote plus 5bps slippage, no lookahead, 3× leverage cap.
+Pure simulation: nothing is written, no orders are created, all money is virtual.</p>
+${
+  hasHistory
+    ? `
+<div class="panel" id="simCtl" data-hist-from="${lo}" data-hist-to="${hi}">
+<h3>Build your simulation</h3>
+<div class="simrow">
+<div><div class="simlabel">Pair</div><div class="seg" id="simPairs">${pairBtns}</div></div>
+<div><div class="simlabel">Starting capital (USD)</div><input id="simCapital" class="txt" type="number" value="10000" min="1000" max="100000" step="100" style="width:160px"></div>
+</div>
+<div class="simlabel" style="margin:14px 0 6px">Trades <span style="text-transform:none;letter-spacing:0;font-weight:400">— up to 50 · times must fall within available history</span></div>
+<div class="tablescroll"><table class="grid simtable"><thead><tr><th>Time</th><th>Side</th><th class="num">Size</th><th>Unit</th><th></th></tr></thead>
+<tbody id="simRows"></tbody></table></div>
+<div class="simactions">
+<button class="btn sm" id="simAdd" type="button">+ Add trade</button>
+<button class="btn sm ghost" id="simExample" type="button">Load example</button>
+<button class="btn" id="simRun" type="button">Run simulation</button>
+<span class="muted" id="simCount"></span>
+</div>
+<div id="simErr" class="simerr" hidden></div>
+</div>
+<div id="simResults" hidden>
+<div class="panel"><h3>Results</h3>
+<p id="simSummary" class="simsum"></p>
+<div class="stats" id="simStats" style="margin-bottom:14px"></div>
+<div class="chartwrap"><canvas id="simChart"></canvas></div>
+</div>
+<div class="panel"><h3 id="simTradeHead">Per-trade breakdown</h3>
+<div class="tablescroll"><table class="grid"><thead><tr><th>#</th><th>Time (UTC)</th><th>Pair</th><th>Side</th><th class="num">Qty</th><th class="num">Fill price</th><th>Status</th><th class="num">Equity after</th></tr></thead>
+<tbody id="simTradeRows"></tbody></table></div>
+<p class="note" id="simHonest" style="margin:10px 0 0"></p>
+</div>
+</div>`
+    : `
+<div class="panel"><p class="note" style="margin:0">Market history is still being collected — check back soon.</p></div>`
+}`;
+
+  const js = `
+(function(){
+var ctl=document.getElementById('simCtl');if(!ctl)return;
+var histFrom=+ctl.getAttribute('data-hist-from'),histTo=+ctl.getAttribute('data-hist-to');
+var pair='BTC/USD',rowCount=0;
+var rowsEl=document.getElementById('simRows'),errEl=document.getElementById('simErr');
+var resEl=document.getElementById('simResults'),runBtn=document.getElementById('simRun');
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showErr(m){errEl.textContent=m;errEl.hidden=false;}
+function hideErr(){errEl.hidden=true;}
+function p2(n){return String(n).padStart(2,'0');}
+function toLocalInput(ms){var d=new Date(ms);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'T'+p2(d.getHours())+':'+p2(d.getMinutes());}
+function fmtDateUTC(ms){return new Date(ms).toLocaleString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});}
+function fmtDTUTC(ms){return new Date(ms).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'UTC'});}
+function money(n){return '$'+Number(n).toLocaleString('en-US',{maximumFractionDigits:0});}
+function money2(n){return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function pct(n){var v=Number(n);return (v>=0?'+':'')+v.toFixed(1)+'%';}
+function simStat(k,v,cls){return '<div class="stat"><div class="k">'+escH(k)+'</div><div class="v '+cls+'">'+escH(v)+'</div></div>';}
+function nearestIdx(points,ts){var best=0,bd=Infinity;for(var i=0;i<points.length;i++){var d=Math.abs(points[i].t-ts);if(d<bd){bd=d;best=i;}}return best;}
+
+document.getElementById('simPairs').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;if(!b)return;
+  pair=b.getAttribute('data-pair');
+  var btns=this.querySelectorAll('button');
+  for(var i=0;i<btns.length;i++)btns[i].classList.toggle('on',btns[i]===b);
+});
+
+function updateCount(){document.getElementById('simCount').textContent=rowCount?rowCount+' of 50 trades':'';}
+
+function addRow(ts,side,size,unit){
+  if(rowCount>=50){showErr('The simulator caps at 50 trades per run.');return;}
+  hideErr();rowCount++;
+  var tr=document.createElement('tr');
+  var dt=ts?toLocalInput(ts):toLocalInput(histTo);
+  tr.innerHTML='<td><input type="datetime-local" class="txt dt" value="'+dt+'"></td>'+
+    '<td><div class="seg sm"><button type="button" data-side="long"'+(side!=='short'?' class="on-long"':'')+'>Long</button>'+
+    '<button type="button" data-side="short"'+(side==='short'?' class="on-short"':'')+'>Short</button></div></td>'+
+    '<td><input type="number" class="txt sz" min="0" step="any" style="width:110px" value="'+(size||'')+'" placeholder="0.00"></td>'+
+    '<td><select class="txt un"><option value="notional"'+(unit!=='qty'?' selected':'')+'>USD</option>'+
+    '<option value="qty"'+(unit==='qty'?' selected':'')+'>qty</option></select></td>'+
+    '<td><button type="button" class="x" title="Remove trade">\\u00d7</button></td>';
+  var seg=tr.querySelector('.seg');
+  seg.addEventListener('click',function(e){
+    var b=e.target.closest?e.target.closest('button'):null;if(!b)return;
+    var s=b.getAttribute('data-side');
+    var btns=this.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++){btns[i].classList.remove('on-long','on-short');if(btns[i]===b)btns[i].classList.add(s==='long'?'on-long':'on-short');}
+  });
+  tr.querySelector('.x').addEventListener('click',function(){tr.remove();rowCount--;updateCount();});
+  rowsEl.appendChild(tr);updateCount();
+}
+document.getElementById('simAdd').addEventListener('click',function(){addRow(histTo,'long',null,'notional');});
+document.getElementById('simExample').addEventListener('click',function(){
+  rowsEl.innerHTML='';rowCount=0;hideErr();
+  var span=histTo-histFrom;
+  var ex=[['long',2000,'notional',0.18],['short',1500,'notional',0.40],['long',1000,'notional',0.62],['short',800,'notional',0.85]];
+  for(var i=0;i<ex.length;i++)addRow(Math.round(histFrom+span*ex[i][3]),ex[i][0],ex[i][1],ex[i][2]);
+});
+
+function collect(){
+  var cap=parseFloat(document.getElementById('simCapital').value);
+  if(!(cap>=1000&&cap<=100000)){showErr('Starting capital must be between $1,000 and $100,000.');return null;}
+  var trs=rowsEl.querySelectorAll('tr');
+  if(!trs.length){showErr('Add at least one trade \\u2014 or hit \\u201cLoad example\\u201d.');return null;}
+  var out=[];
+  for(var i=0;i<trs.length;i++){
+    var tr=trs[i],dt=tr.querySelector('.dt').value;
+    var ms=dt?new Date(dt).getTime():NaN;
+    if(!isFinite(ms)){showErr('Trade '+(i+1)+': pick a valid date and time.');return null;}
+    if(ms<histFrom||ms>histTo){showErr('Trade '+(i+1)+': time must be within available history ('+fmtDateUTC(histFrom)+' \\u2192 '+fmtDateUTC(histTo)+').');return null;}
+    var on=tr.querySelector('.seg button.on-long,.seg button.on-short');
+    var side=on?on.getAttribute('data-side'):'long';
+    var size=parseFloat(tr.querySelector('.sz').value);
+    if(!(size>0)){showErr('Trade '+(i+1)+': size must be a positive number.');return null;}
+    var t={pair:pair,side:side,timestamp:Math.round(ms)};
+    if(tr.querySelector('.un').value==='qty')t.qty=size;else t.notional=size;
+    out.push(t);
+  }
+  return {capital:cap,trades:out};
+}
+
+function drawChart(cv,points,cap,trades){
+  var dpr=window.devicePixelRatio||1;
+  var w=cv.clientWidth,h=cv.clientHeight||300;
+  if(!w||!h||points.length<2)return;
+  cv.width=w*dpr;cv.height=h*dpr;
+  var ctx=cv.getContext('2d');if(!ctx)return;
+  ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
+  var padL=10,padR=10,padT=14,padB=26,i,v;
+  var vals=points.map(function(p){return p.equity;});vals.push(cap);
+  var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+  if(max===min)max=min+1;
+  function X(k){return padL+k*(w-padL-padR)/(points.length-1);}
+  function Y(val){return padT+(1-(val-min)/(max-min))*(h-padT-padB);}
+  ctx.strokeStyle='#1e2630';ctx.lineWidth=1;
+  for(i=0;i<=3;i++){v=min+(max-min)*i/3;ctx.beginPath();ctx.moveTo(padL,Y(v));ctx.lineTo(w-padR,Y(v));ctx.stroke();}
+  ctx.setLineDash([5,4]);ctx.strokeStyle='#848e9c';
+  ctx.beginPath();ctx.moveTo(padL,Y(cap));ctx.lineTo(w-padR,Y(cap));ctx.stroke();ctx.setLineDash([]);
+  var up=points[points.length-1].equity>=points[0].equity,col=up?'#0ecb81':'#f6465d';
+  ctx.beginPath();
+  for(i=0;i<points.length;i++){if(i)ctx.lineTo(X(i),Y(points[i].equity));else ctx.moveTo(X(i),Y(points[i].equity));}
+  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+  ctx.lineTo(X(points.length-1),h-padB);ctx.lineTo(X(0),h-padB);ctx.closePath();
+  var gr=ctx.createLinearGradient(0,0,0,h);
+  gr.addColorStop(0,up?'rgba(14,203,129,.22)':'rgba(246,70,93,.22)');gr.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=gr;ctx.fill();
+  for(i=0;i<trades.length;i++){
+    var t=trades[i];if(t.status!=='filled'||t.fill_price==null)continue;
+    var idx=nearestIdx(points,t.ts);
+    ctx.beginPath();ctx.arc(X(idx),Y(t.equity_after),3.5,0,7);
+    ctx.fillStyle=t.side==='long'?'#0ecb81':'#f6465d';ctx.fill();
+  }
+  ctx.fillStyle='#848e9c';ctx.font='11px sans-serif';
+  ctx.fillText(money(max),padL,padT-3);
+  ctx.fillText(money(min),padL,h-padB+14);
+  ctx.fillText(fmtDateUTC(points[0].t),padL,h-8);
+  var last=fmtDateUTC(points[points.length-1].t);
+  ctx.fillText(last,w-padR-ctx.measureText(last).width,h-8);
+}
+
+function render(j,cap){
+  document.getElementById('simSummary').textContent=j.summary||'';
+  var ret=j.return_pct,dd=j.max_dd;
+  document.getElementById('simStats').innerHTML=
+    simStat('Final equity',money2(j.points[j.points.length-1].equity),'')+
+    simStat('Total return',pct(ret),ret>=0?'pos':'neg')+
+    simStat('Max drawdown',pct(dd),'neg')+
+    simStat('Sharpe',Number(j.sharpe).toFixed(2),'');
+  document.getElementById('simTradeHead').innerHTML='Per-trade breakdown <span class="muted">\\u2014 '+
+    j.trades_filled+' filled'+(j.trades_rejected?', '+j.trades_rejected+' rejected':'')+'</span>';
+  var tb=document.getElementById('simTradeRows');
+  tb.innerHTML=j.trades.map(function(t,k){
+    var st=t.status==='filled'?'<span class="pos">filled</span>':'<span class="neg" title="'+escH(t.reject_reason||'')+'">rejected</span>';
+    return '<tr><td class="rankcell">'+(k+1)+'</td><td class="num">'+escH(fmtDTUTC(t.ts))+'</td><td>'+escH(t.pair)+
+      '</td><td class="'+(t.side==='long'?'pos':'neg')+'">'+t.side+'</td>'+
+      '<td class="num">'+Number(t.qty).toFixed(6)+'</td>'+
+      '<td class="num">'+(t.fill_price==null?'\\u2013':money2(t.fill_price))+'</td>'+
+      '<td>'+st+'</td><td class="num">'+money2(t.equity_after)+'</td></tr>';
+  }).join('');
+  var h=j.honesty||{};
+  document.getElementById('simHonest').textContent='How to read this: '+
+    [h.fill_model,h.lookahead,h.leverage,h.history].filter(Boolean).join(' \\u00b7 ')+'.';
+  drawChart(document.getElementById('simChart'),j.points,cap,j.trades||[]);
+  resEl.hidden=false;
+  try{if(resEl.scrollIntoView)resEl.scrollIntoView();}catch(e){}
+}
+
+runBtn.addEventListener('click',function(){
+  hideErr();resEl.hidden=true;
+  var c=collect();if(!c)return;
+  runBtn.disabled=true;var old=runBtn.textContent;runBtn.textContent='Running\\u2026';
+  fetch('/api/v1/simulate',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({starting_capital:c.capital,trades:c.trades})})
+  .then(function(r){return r.json().then(function(b){return{ok:r.ok,status:r.status,body:b};});})
+  .then(function(res){
+    runBtn.disabled=false;runBtn.textContent=old;
+    if(!res.ok||!res.body||!res.body.points){showErr(res.body&&res.body.error?res.body.error.message:'Simulation failed (HTTP '+res.status+').');return;}
+    render(res.body,c.capital);
+  })
+  .catch(function(){runBtn.disabled=false;runBtn.textContent=old;showErr('Network error \\u2014 please try again.');});
+});
+})();`;
+
+  return page('Simulator', body, js, 'sim', 'The Pit simulator — run hypothetical trades against a year of hourly BTC, ETH, SOL, XRP, DOGE market history. No account needed; nothing is written.');
 }

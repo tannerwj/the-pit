@@ -13,12 +13,28 @@ import {
   backtestStats,
   backtestSummary,
   type BacktestTradeInput,
+  type BacktestTradeResult,
 } from '../lib/backtest';
 import { downsamplePoints } from '../lib/whatif';
 import { quotesForTimeline, normalizeDbPair } from '../lib/history';
 
 const MAX_TRADES = 500;
 const MAX_POINTS = 120;
+
+export interface ReplayPayload {
+  starting_capital: number;
+  trades_submitted: number;
+  trades_filled: number;
+  trades_rejected: number;
+  return_pct: number;
+  max_dd: number;
+  sharpe: number;
+  points: Array<{ t: number; equity: number }>;
+  timeline_points: number;
+  trades: BacktestTradeResult[];
+  summary: string;
+  honesty: Record<string, string>;
+}
 
 interface RawTrade {
   pair?: unknown;
@@ -81,17 +97,37 @@ export async function postBacktest(
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    body = await req.json();
   } catch {
     return err('bad_request', 'Invalid JSON body', 400);
   }
-  if (typeof body !== 'object' || body === null) {
-    return err('bad_request', 'Request body must be a JSON object', 400);
-  }
 
-  const capRaw = body['starting_capital'];
+  const parsed = parseReplayBody(body, Date.now(), MAX_TRADES);
+  if ('error' in parsed) return err('bad_request', parsed.error, parsed.status);
+  const payload = await runReplay(env, parsed.startingCapital, parsed.trades);
+  return json(payload);
+}
+
+/**
+ * Shared hypothetical-trade replay core, used by the authenticated
+ * POST /api/v1/backtest and the public POST /api/v1/simulate.
+ *
+ * parseReplayBody validates the request body (no I/O); runReplay reads
+ * historical quotes and runs the pure replay (no writes — ever).
+ */
+export function parseReplayBody(
+  body: unknown,
+  now: number,
+  maxTrades: number,
+): { startingCapital: number; trades: BacktestTradeInput[] } | { error: string; status: number } {
+  if (typeof body !== 'object' || body === null) {
+    return { error: 'Request body must be a JSON object', status: 400 };
+  }
+  const b = body as Record<string, unknown>;
+
+  const capRaw = b['starting_capital'];
   const startingCapital = capRaw === undefined ? 10_000 : capRaw;
   if (
     typeof startingCapital !== 'number' ||
@@ -99,30 +135,37 @@ export async function postBacktest(
     startingCapital < 1000 ||
     startingCapital > 100000
   ) {
-    return err('bad_request', 'starting_capital must be between 1000 and 100000', 422);
+    return { error: 'starting_capital must be between 1000 and 100000', status: 422 };
   }
 
-  const tradesRaw = body['trades'];
+  const tradesRaw = b['trades'];
   if (!Array.isArray(tradesRaw)) {
-    return err('bad_request', 'trades must be an array', 422);
+    return { error: 'trades must be an array', status: 422 };
   }
-  if (tradesRaw.length > MAX_TRADES) {
-    return err('bad_request', `trades is capped at ${MAX_TRADES} per request`, 422);
+  if (tradesRaw.length > maxTrades) {
+    return { error: `trades is capped at ${maxTrades} per request`, status: 422 };
   }
 
-  const now = Date.now();
   const trades: BacktestTradeInput[] = [];
   for (let i = 0; i < tradesRaw.length; i++) {
     const parsed = parseTrade(tradesRaw[i], i, now);
-    if ('error' in parsed) return err('bad_request', parsed.error, 422);
+    if ('error' in parsed) return { error: parsed.error, status: 422 };
     trades.push(parsed.trade);
   }
+  return { startingCapital, trades };
+}
 
+/** Run the replay and build the response payload. Reads quotes; writes nothing. */
+export async function runReplay(
+  env: Env,
+  startingCapital: number,
+  trades: BacktestTradeInput[],
+): Promise<ReplayPayload> {
   // Timeline: a pre-first-trade anchor (so the curve starts at starting
   // capital) plus every trade timestamp. Downsampled later for the response.
   const tradeTs = [...new Set(trades.map((t) => t.ts))].sort((a, b) => a - b);
   const timeline =
-    tradeTs.length === 0 ? [now] : [tradeTs[0] - 1, ...tradeTs];
+    tradeTs.length === 0 ? [Date.now()] : [tradeTs[0] - 1, ...tradeTs];
 
   const pairs = [...new Set(trades.map((t) => t.pair))];
   const quotesByPair = new Map();
@@ -138,7 +181,7 @@ export async function postBacktest(
   });
   const stats = backtestStats(replay.points, startingCapital);
 
-  return json({
+  return {
     starting_capital: startingCapital,
     trades_submitted: trades.length,
     trades_filled: replay.filled,
@@ -173,5 +216,5 @@ export async function postBacktest(
         '1-minute live bid/ask from 2026-09-20; hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread)',
       writes: 'none — backtests never create orders, positions, or entries',
     },
-  });
+  };
 }

@@ -11,6 +11,7 @@ import { getLeaderboard } from './routes/leaderboard';
 import { getJournal } from './routes/journal';
 import { getWhatIf } from './routes/whatif';
 import { postBacktest } from './routes/backtest';
+import { postSimulate } from './routes/simulate';
 import { backfillHistory } from './routes/history';
 import {
   setWebhook,
@@ -35,7 +36,7 @@ import {
   leagueSeasonLeaderboard,
 } from './routes/leagues';
 // Track C modules (pages + docs).
-import { homePage, agentsPage, leaderboardPage, pairPage, leaguesPage, leaguePage } from './pages';
+import { homePage, agentsPage, leaderboardPage, pairPage, leaguesPage, leaguePage, simulatePage } from './pages';
 import { llmsTxt, openApiJson, apiCatalog, mcpServerJson } from './docs';
 import { handleMcp } from './routes/mcp';
 
@@ -72,6 +73,7 @@ async function fetch(
     return mcpServerJson();
   }
   if (method === 'GET' && path === '/agents') return agentsPage();
+  if (method === 'GET' && path === '/simulate') return simulatePage(env);
 
   // MCP (Model Context Protocol) — Streamable HTTP, JSON-RPC 2.0.
   if (path === '/mcp') return handleMcp(req, env, ctx);
@@ -215,6 +217,10 @@ async function fetch(
     // Backtest hypothetical trades against history (pure; nothing is written).
     if (method === 'POST' && seg.length === 1 && seg[0] === 'backtest') {
       return postBacktest(req, env);
+    }
+    // Public simulator: same replay core, tighter bounds, per-IP rate limit.
+    if (method === 'POST' && seg.length === 1 && seg[0] === 'simulate') {
+      return postSimulate(req, env);
     }
     // Fill webhooks (one per agent).
     if (seg.length === 3 && seg[0] === 'agents' && seg[1] === 'me' && seg[2] === 'webhook') {
