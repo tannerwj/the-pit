@@ -2226,26 +2226,103 @@ function jumpEvent(T,dir,events){
   return best;
 }
 function priceAt(series,T){var i=binLE(series||[],T,'t');return i>=0?series[i]:null;}
-function equityAt(points,T,cap){var i=binLE(points||[],T,'t');return i>=0?points[i].equity:cap;}
-/* "At this moment" panel at T: equity, P&L, drawdown-from-peak, per-pair prices. No-lookahead. */
+/* Mark for a pair at T: linear interpolation between the two market points
+   bracketing T — exactly what the chart draws at the playhead, so the panel
+   number and the revealed chart always agree and the readout glides instead
+   of stepping. At or past the last point the mark is that point's price; null
+   before the first point (the caller then falls back to the position's average
+   price, mirroring backtest.ts markAt). Fills and summary stats still use the
+   strict nearest-at-or-before quote — interpolation is display-only. */
+function markAt(series,T){
+  var s=series||[],n=s.length;
+  if(!n)return null;
+  var i=binLE(s,T,'t');
+  if(i<0)return null;
+  if(i===n-1||T===s[i].t)return s[i].price;
+  var p0=s[i],p1=s[i+1],dt=p1.t-p0.t;
+  if(!(dt>0))return p0.price;
+  var f=(T-p0.t)/dt;if(f<0)f=0;if(f>1)f=1;
+  return p0.price+(p1.price-p0.price)*f;
+}
+/* Client-side mirror of the backend replay accounting (lib/backtest.ts +
+   lib/engine.ts applyFill): cash starts at cap; each filled trade moves cash
+   by -qty*fill (long) or +qty*fill (short) and nets into the pair's position
+   with the exact engine average-price rules. Rejected trades contribute
+   nothing. Fill prices come from the response — they already embed touch-side
+   pricing and the 5bps slippage, so no bid/ask is needed client-side. */
+function buildLedger(trades,cap){
+  var fills=[],i,t;
+  for(i=0;i<(trades||[]).length;i++){t=trades[i];
+    if(t.status==='filled'&&t.fill_price!=null)
+      fills.push({ts:t.ts,index:t.index,pair:t.pair,side:t.side,qty:t.qty,fill:t.fill_price});}
+  fills.sort(function(a,b){return a.ts-b.ts||a.index-b.index;});
+  var cash=cap,pos={},steps=[];
+  for(i=0;i<fills.length;i++){var f=fills[i];
+    var signed=f.side==='long'?f.qty:-f.qty;
+    cash+=f.side==='long'?-f.qty*f.fill:f.qty*f.fill;
+    var p=pos[f.pair]||{qty:0,avg:0},nq=p.qty+signed;
+    if(p.qty===0||(p.qty>0)===(signed>0)){
+      p.avg=nq===0?0:(Math.abs(p.qty)*p.avg+f.qty*f.fill)/Math.abs(nq);
+    }else{
+      p.avg=nq===0?0:((nq>0)===(p.qty>0)?p.avg:f.fill);
+    }
+    p.qty=nq;
+    var snap={},k;
+    for(k in pos){if(Object.prototype.hasOwnProperty.call(pos,k))snap[k]={qty:pos[k].qty,avg:pos[k].avg};}
+    snap[f.pair]={qty:p.qty,avg:p.avg};
+    pos[f.pair]={qty:p.qty,avg:p.avg};
+    steps.push({ts:f.ts,cash:cash,pos:snap});
+  }
+  return{cap:cap,steps:steps};
+}
+/* Ledger state at T: cash and per-pair positions after the last fill
+   at-or-before T. Fills after T are invisible (no lookahead). */
+function ledgerAt(ledger,T){
+  var steps=ledger.steps,i=binLE(steps,T,'ts');
+  return i<0?{cash:ledger.cap,pos:{}}:steps[i];
+}
+/* Equity at T: cash + open positions marked at T. Mirrors backtest.ts
+   equityNow, but the mark is continuous in T, so the number breathes with the
+   market between fills instead of sitting flat until the next trade. */
+function equityAt(ledger,market,T){
+  var st=ledgerAt(ledger,T),e=st.cash,k,px,p;
+  for(k in st.pos){if(!Object.prototype.hasOwnProperty.call(st.pos,k))continue;
+    p=st.pos[k];if(p.qty===0)continue;
+    px=markAt(market[k]||[],T);
+    e+=p.qty*(px==null?p.avg:px);}
+  return e;
+}
+/* Dense equity curve over a time grid, plus the prefix peak at each point
+   (for drawdown-from-peak without a per-frame scan). */
+function equityCurve(grid,ledger,market){
+  var pts=new Array(grid.length),peaks=new Array(grid.length),peak=ledger.cap,i,e;
+  for(i=0;i<grid.length;i++){e=equityAt(ledger,market,grid[i]);pts[i]={t:grid[i],equity:e};
+    if(e>peak)peak=e;peaks[i]=peak;}
+  return{pts:pts,peaks:peaks};
+}
+/* "At this moment" panel at T: equity, P&L, drawdown-from-peak, per-pair marks. No-lookahead. */
 function panelAt(T,data){
-  var cap=data.cap,points=data.points||[],market=data.market||{};
-  var eq=equityAt(points,T,cap),peak=cap,i,p;
-  for(i=0;i<points.length&&points[i].t<=T;i++){p=points[i].equity;if(p>peak)peak=p;}
-  var dd=peak>0?(peak-eq)/peak:0;
-  var prices={},k,s,pt;
+  var cap=data.cap,market=data.market||{},ledger=data.ledger,curve=data.curve;
+  var eq=equityAt(ledger,market,T),peak=cap;
+  if(curve&&curve.pts.length){
+    var i=binLE(curve.pts,T,'t');
+    if(i>=0&&curve.peaks[i]>peak)peak=curve.peaks[i];
+  }
+  if(eq>peak)peak=eq;
+  var dd=peak>0?Math.max(0,(peak-eq)/peak):0;
+  var prices={},k,m;
   for(k in market){if(!Object.prototype.hasOwnProperty.call(market,k))continue;
-    s=market[k];pt=priceAt(s,T);if(pt)prices[k]=pt.price;}
-  return {T:T,equity:eq,pnl:eq-cap,pnlPct:cap>0?(eq-cap)/cap*100:0,peak:peak,drawdown:dd,prices:prices};
+    m=markAt(market[k],T);if(m!=null)prices[k]=m;}
+  return{T:T,equity:eq,pnl:eq-cap,pnlPct:cap>0?(eq-cap)/cap*100:0,peak:peak,drawdown:dd,prices:prices};
 }
 /* Per-trade state at T: upcoming/open + indicative unrealized P&L vs the fill. */
 function tradeStateAt(tr,T,market){
   if(tr.status!=='filled')return{status:'rejected',unrealized:null,priceNow:null};
   if(tr.ts>T)return{status:'upcoming',unrealized:null,priceNow:null};
-  var s=priceAt(market[tr.pair]||[],T);
-  if(!s||tr.fill_price==null)return{status:'open',unrealized:null,priceNow:null};
+  var m=markAt(market[tr.pair]||[],T);
+  if(m==null||tr.fill_price==null)return{status:'open',unrealized:null,priceNow:null};
   var sign=tr.side==='long'?1:-1;
-  return{status:'open',unrealized:sign*tr.qty*(s.price-tr.fill_price),priceNow:s.price};
+  return{status:'open',unrealized:sign*tr.qty*(m-tr.fill_price),priceNow:m};
 }
 /* Net position per pair at T, mirroring engine.ts applyFill netting. */
 function netPositions(T,trades,market){
@@ -2266,7 +2343,7 @@ function netPositions(T,trades,market){
   }
   var out=[];
   for(i=0;i<order.length;i++){var pair=order[i];p=pos[pair];
-    var s=priceAt(market[pair]||[],T),px=s?s.price:null;
+    var px=markAt(market[pair]||[],T);
     out.push({pair:pair,qty:p.qty,avgPrice:p.avg,priceNow:px,
       unrealized:px==null?null:p.qty*(px-p.avg)});}
   return out;
@@ -2290,7 +2367,8 @@ function fmtElapsed(ms){
   return'T+'+m+'m '+(s%60)+'s';
 }
 return{binLE:binLE,buildGrid:buildGrid,tradeEvents:tradeEvents,stepOnGrid:stepOnGrid,
-  jumpEvent:jumpEvent,priceAt:priceAt,equityAt:equityAt,panelAt:panelAt,
+  jumpEvent:jumpEvent,priceAt:priceAt,markAt:markAt,buildLedger:buildLedger,
+  equityAt:equityAt,equityCurve:equityCurve,panelAt:panelAt,
   tradeStateAt:tradeStateAt,netPositions:netPositions,playMs:playMs,fmtElapsed:fmtElapsed,
   revealX:revealX};
 })();
@@ -2433,8 +2511,11 @@ function prerenderCharts(){
     seriesInto(ctx,g,w,hM,series,'price',mn,mx,'#f0b90b','rgba(240,185,11,.20)');
     mk[p]={img:off,mn:mn,mx:mx};
   }
-  var points=j.points||[],cap=simD.cap;
-  var vals=points.map(function(pt){return pt.equity;});vals.push(cap);
+  /* Dense client-side equity curve (positions marked continuously) — the
+     backend's sparse points only move at fills, which read as flat-then-jump.
+     The backend curve stays the source of truth for the final summary stats. */
+  var cap=simD.cap,cpts=(simD.curve&&simD.curve.pts)||[];
+  var vals=cpts.map(function(pt){return pt.equity;});vals.push(cap);
   var emn=Math.min.apply(null,vals),emx=Math.max.apply(null,vals);
   if(emx===emn)emx=emn+1;
   var eoff=document.createElement('canvas');
@@ -2446,9 +2527,9 @@ function prerenderCharts(){
     ectx.setLineDash([5,4]);ectx.strokeStyle='#848e9c';
     var by=g.padT+(1-(cap-emn)/(emx-emn))*(hE-g.padT-g.padB);
     ectx.beginPath();ectx.moveTo(g.padL,by);ectx.lineTo(w-g.padR,by);ectx.stroke();ectx.setLineDash([]);
-    var up=points.length>1&&points[points.length-1].equity>=points[0].equity;
+    var up=cpts.length>1&&cpts[cpts.length-1].equity>=cpts[0].equity;
     var ecol=up?'#0ecb81':'#f6465d';
-    seriesInto(ectx,g,w,hE,points,'equity',emn,emx,ecol,up?'rgba(14,203,129,.22)':'rgba(246,70,93,.22)');
+    seriesInto(ectx,g,w,hE,cpts,'equity',emn,emx,ecol,up?'rgba(14,203,129,.22)':'rgba(246,70,93,.22)');
     eq={img:eoff,mn:emn,mx:emx};
   }
   simCache={w:w,hM:hM,hE:hE,g:g,mk:mk,eq:eq};
@@ -2531,8 +2612,8 @@ function drawEquity(cv){
   var c=simCache&&simCache.w===w&&simCache.hE===h?simCache:null;
   var g=c?c.g:chartGeom(w,tf);
   var entry=c?c.eq:null;
-  var points=j.points||[];
-  if(!entry||points.length<2){
+  var cpts2=(simD.curve&&simD.curve.pts)||[];
+  if(!entry||cpts2.length<2){
     ctx.fillStyle='#5b6472';ctx.font='13px sans-serif';
     ctx.fillText('Press play or step forward to reveal your equity.',14,26);
     drawPlayhead(ctx,g,w,h);drawXLabels(ctx,g,w,h);return;
@@ -2590,7 +2671,7 @@ function updatePanel(){
   var j=simD.j,cap=simD.cap,tf=j.timeframe,i;
   simClockEl.textContent=fmtDTUTC(simT)+' UTC';
   simElapsedEl.textContent=ENG.fmtElapsed(simT-tf.from)+' into the replay';
-  var p=ENG.panelAt(simT,{points:j.points,cap:cap,trades:j.trades,market:j.market});
+  var p=ENG.panelAt(simT,{ledger:simD.ledger,curve:simD.curve,cap:cap,market:j.market});
   var cls=p.pnl>=0?'pos':'neg',sgn=p.pnl>=0?'+':'';
   simMcells.eq.textContent=money2(p.equity);
   simMcells.pnl.textContent=sgn+money2(p.pnl)+' ('+sgn+p.pnlPct.toFixed(1)+'%)';
@@ -2666,7 +2747,7 @@ function updateTip(){
   if(!simD||simHoverTs==null||!simHoverXY){tip.style.display='none';return;}
   var j=simD.j,cap=simD.cap,tf=j.timeframe;
   var ts=Math.min(simHoverTs,simT);
-  var p=ENG.panelAt(ts,{points:j.points,cap:cap,trades:j.trades,market:j.market});
+  var p=ENG.panelAt(ts,{ledger:simD.ledger,curve:simD.curve,cap:cap,market:j.market});
   var cls=p.pnl>=0?'pos':'neg',sgn=p.pnl>=0?'+':'';
   var html='<div class="tt">'+escH(fmtDTUTC(ts))+' UTC</div>';
   if(p.prices[simPair]!=null)html+='<div>'+escH(simPair||'')+' <b>'+fmtPx(p.prices[simPair])+'</b></div>';
@@ -2808,6 +2889,8 @@ function render(j,cap){
   pausePlay();simHoverTs=null;simHoverXY=null;simHiTrade=-1;
   simGrid=ENG.buildGrid(j.market,j.points,j.trades,tf.from,tf.to);
   simEvents=ENG.tradeEvents(j.trades);
+  simD.ledger=ENG.buildLedger(j.trades,cap);
+  simD.curve=ENG.equityCurve(simGrid,simD.ledger,j.market||{});
   simT=tf.to;
   simSpeed=parseFloat(document.getElementById('simSpeed').value)||1;
   endTour();

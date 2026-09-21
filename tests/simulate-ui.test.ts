@@ -578,4 +578,60 @@ describe('/simulate page', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(document.querySelectorAll('#simInspectRows tr').length).toBe(4);
   });
+
+  it('replay numbers breathe: stepping the playhead between fills changes the equity/P&L readout', async () => {
+    // Two trades far apart: a long on Jun 2, a short on Jun 8 — between them
+    // the position is open and the market moves, so the readout must move too.
+    const specs = [
+      { pair: 'BTC/USD', side: 'long' as const, notional: 2000, timestamp: Date.UTC(2026, 5, 2, 3, 0) },
+      { pair: 'BTC/USD', side: 'short' as const, notional: 800, timestamp: Date.UTC(2026, 5, 8, 14, 0) },
+    ];
+    const { window, document } = await loadPage(specs, {
+      from: Date.UTC(2026, 5, 1, 0, 0),
+      to: Date.UTC(2026, 5, 20, 0, 0),
+    });
+    const mkt = document.getElementById('simMarketChart')!;
+    const eq = document.getElementById('simChart')!;
+    for (const [cv, h] of [[mkt, 250], [eq, 280]] as const) {
+      Object.defineProperty(cv, 'clientWidth', { value: 800, configurable: true });
+      Object.defineProperty(cv, 'clientHeight', { value: h, configurable: true });
+    }
+    const click = (id: string) =>
+      document.getElementById(id)!.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    // Populate the trade table via the guided example (the stubbed fetch
+    // returns our 2-trade canned response regardless of the request body).
+    document.getElementById('simExample')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    document.getElementById('simRun')!.dispatchEvent(
+      new window.MouseEvent('click', { bubbles: true }),
+    );
+    await tick();
+    expect(document.getElementById('simResults')!.hidden).toBe(false);
+
+    const eqText = () => (document.getElementById('simMvEq') as HTMLElement).textContent!;
+    const pnlText = () => (document.getElementById('simMvPnl') as HTMLElement).textContent!;
+    click('simReset');
+    click('simNextEv'); // playhead on the first fill (Jun 2) — position now open
+    expect(document.querySelectorAll('#simInspectRows tr.tr-open').length).toBe(1);
+    // Step forward grid point by grid point (no new fills for days): the
+    // equity and P&L readouts must move with the market, not sit flat.
+    const eqSeen = new Set<string>();
+    const pnlSeen = new Set<string>();
+    for (let i = 0; i < 10; i++) {
+      click('simStepF');
+      eqSeen.add(eqText());
+      pnlSeen.add(pnlText());
+    }
+    expect(eqSeen.size).toBeGreaterThan(1);
+    expect(pnlSeen.size).toBeGreaterThan(1);
+    // Still exactly one open trade — nothing filled while stepping.
+    expect(document.querySelectorAll('#simInspectRows tr.tr-open').length).toBe(1);
+    // Scrubbing mid-window also shows a live value, never a placeholder.
+    const sc = document.getElementById('simScrub') as HTMLInputElement;
+    sc.value = '300';
+    sc.dispatchEvent(new window.Event('input', { bubbles: true }));
+    expect(eqText()).not.toBe('—');
+    expect(eqText()).toMatch(/^\$/);
+  });
 });
