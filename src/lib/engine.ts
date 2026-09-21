@@ -103,8 +103,8 @@ export interface LeverageCheck {
 }
 
 /**
- * Post-trade leverage check: would the position after this fill exceed
- * MAX_LEVERAGE? Equity is marked at the fill price.
+ * Post-trade leverage check: would the position after this fill exceed the
+ * season's max leverage? Equity is marked at the fill price.
  */
 export function checkLeverage(args: {
   cash: number;
@@ -112,18 +112,20 @@ export function checkLeverage(args: {
   side: Side;
   orderQty: number;
   fillPrice: number;
+  maxLeverage?: number;
 }): LeverageCheck {
+  const maxLev = args.maxLeverage ?? MAX_LEVERAGE;
   const fill = applyFill({ qty: args.posQty, avgPrice: 0 }, args.side, args.orderQty, args.fillPrice);
   const notional = Math.abs(fill.qty) * args.fillPrice;
   const equity = args.cash + fill.cashDelta + fill.qty * args.fillPrice;
   const leverage = equity > 0 ? notional / equity : notional > 0 ? Infinity : 0;
-  const ok = leverage <= MAX_LEVERAGE;
+  const ok = leverage <= maxLev;
   return {
     ok,
     notional,
     equity,
     leverage,
-    reason: ok ? undefined : `leverage ${leverage.toFixed(2)}x exceeds max ${MAX_LEVERAGE}x`,
+    reason: ok ? undefined : `leverage ${leverage.toFixed(2)}x exceeds max ${maxLev}x`,
   };
 }
 

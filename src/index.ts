@@ -16,11 +16,21 @@ import {
   takedownEntry,
   adminJournal,
 } from './routes/admin';
+import {
+  createLeague,
+  listLeagues,
+  getLeague,
+  updateLeague,
+  createLeagueSeason,
+  leagueSeasonTransition,
+  leagueSeasonLeaderboard,
+} from './routes/leagues';
 // Track C modules (pages + docs).
-import { homePage, leaderboardPage, pairPage } from './pages';
+import { homePage, leaderboardPage, pairPage, leaguesPage, leaguePage } from './pages';
 import { llmsTxt, openApiJson, apiCatalog } from './docs';
 
 const SEASON_ACTIONS = ['open', 'close', 'settle'] as const;
+const LEAGUE_SEASON_ACTIONS = ['open', 'close', 'settle'] as const;
 
 async function fetch(
   req: Request,
@@ -38,6 +48,10 @@ async function fetch(
   }
   if (method === 'GET' && path.startsWith('/pair/')) {
     return pairPage(env, decodeURIComponent(path.slice('/pair/'.length)));
+  }
+  if (method === 'GET' && path === '/leagues') return leaguesPage(env);
+  if (method === 'GET' && path.startsWith('/league/')) {
+    return leaguePage(env, decodeURIComponent(path.slice('/league/'.length)));
   }
   if (method === 'GET' && path === '/llms.txt') return llmsTxt();
   if (method === 'GET' && path === '/openapi.json') return openApiJson();
@@ -104,6 +118,42 @@ async function fetch(
     }
     if (method === 'POST' && seg.length === 3 && seg[0] === 'seasons' && seg[2] === 'enter') {
       return enterSeason(req, env, seg[1]);
+    }
+    // Fantasy leagues.
+    if (seg.length === 1 && seg[0] === 'leagues') {
+      if (method === 'POST') return createLeague(req, env);
+      if (method === 'GET') return listLeagues(req, env);
+    }
+    if (seg.length === 2 && seg[0] === 'leagues') {
+      if (method === 'GET') return getLeague(req, env, seg[1]);
+      if (method === 'PATCH') return updateLeague(req, env, seg[1]);
+    }
+    if (method === 'POST' && seg.length === 3 && seg[0] === 'leagues' && seg[2] === 'seasons') {
+      return createLeagueSeason(req, env, seg[1]);
+    }
+    if (
+      method === 'POST' &&
+      seg.length === 5 &&
+      seg[0] === 'leagues' &&
+      seg[2] === 'seasons' &&
+      (LEAGUE_SEASON_ACTIONS as readonly string[]).includes(seg[4])
+    ) {
+      return leagueSeasonTransition(
+        req,
+        env,
+        seg[1],
+        seg[3],
+        seg[4] as (typeof LEAGUE_SEASON_ACTIONS)[number],
+      );
+    }
+    if (
+      method === 'GET' &&
+      seg.length === 5 &&
+      seg[0] === 'leagues' &&
+      seg[2] === 'seasons' &&
+      seg[4] === 'leaderboard'
+    ) {
+      return leagueSeasonLeaderboard(req, env, seg[1], seg[3]);
     }
     if (method === 'GET' && seg.length === 3 && seg[0] === 'market' && seg[2] === 'quote') {
       return getQuote(req, env, seg[1]);

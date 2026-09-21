@@ -1,6 +1,15 @@
 // The Pit — spectator UI + new read-endpoint tests (mock D1, no network).
 import { describe, it, expect } from 'vitest';
-import { homePage, leaderboardPage, pairPage, smaSeries, formatCountdown } from '../src/pages';
+import {
+  homePage,
+  leaderboardPage,
+  pairPage,
+  leaguesPage,
+  leaguePage,
+  smaSeries,
+  formatCountdown,
+} from '../src/pages';
+import { default as worker } from '../src/index';
 import { getEquityCurve, getRecentTrades } from '../src/routes/spectator';
 import type { Env } from '../src/lib/types';
 
@@ -8,15 +17,16 @@ interface Handler {
   match: (sql: string) => boolean;
   all?: unknown[];
   first?: unknown;
+  firstFor?: (params: unknown[]) => unknown;
 }
 
 function mockDb(handlers: Handler[]): Env {
   const db = {
     prepare(sql: string) {
       const h = handlers.find((x) => x.match(sql));
-      const bound = (..._p: unknown[]) => ({
+      const bound = (...p: unknown[]) => ({
         all: async () => ({ results: h?.all ?? [] }),
-        first: async () => h?.first ?? null,
+        first: async () => (h?.firstFor ? h.firstFor(p) : (h?.first ?? null)),
         run: async () => ({ success: true }),
       });
       return {
@@ -320,5 +330,138 @@ describe('wave-2 dashboard polish', () => {
     expect(html).toContain('Est. vol · 24h');
     expect(html).toContain('class="skel"');
     expect(html).toContain('formatCountdown');
+  });
+});
+
+describe('wave-3 fantasy league pages', () => {
+  const LEAGUE = {
+    id: 'league-1',
+    slug: 'degen-arena',
+    name: 'Degen Arena',
+    description: 'High-octane paper trading',
+    pairs: '["BTC/USD","ETH/USD"]',
+    season_days: 7,
+    starting_capital: 5000,
+    max_leverage: 2,
+    allow_short: 1,
+    visibility: 'public',
+    max_agents: 16,
+    created_at: 1,
+  };
+  const LSEASON = {
+    id: 'lseason-1',
+    name: 'Degen Arena — Season 1',
+    pair: 'BTC/USD',
+    starts_at: Date.now() - 1000,
+    ends_at: Date.now() + 6 * 86400000,
+    status: 'live',
+  };
+
+  function leagueHandlers(league: unknown, seasons: unknown[]): Handler[] {
+    return [
+      {
+        match: (s) =>
+          s.includes('FROM leagues WHERE visibility = \'public\''),
+        all: league ? [league] : [],
+      },
+      {
+        match: (s) => s.includes('FROM leagues WHERE slug = ?'),
+        firstFor: (p) =>
+          league && (league as { slug: string }).slug === p[0] ? league : null,
+      },
+      {
+        match: (s) => s.includes('SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?'),
+        first: { n: seasons.length },
+      },
+      {
+        match: (s) => s.includes('SELECT status FROM seasons WHERE league_id = ?'),
+        first: { status: 'live' },
+      },
+      {
+        match: (s) => s.includes('COUNT(DISTINCT se.agent_id)'),
+        first: { n: 3 },
+      },
+      {
+        match: (s) =>
+          s.includes('FROM seasons WHERE league_id = ? ORDER BY starts_at DESC'),
+        all: seasons,
+      },
+      { match: (s) => s.includes('LEFT JOIN scores'), all: LB_ROWS },
+    ];
+  }
+
+  it('leaguesPage lists public leagues with param chips and counts', async () => {
+    const html = await text(
+      await leaguesPage(mockDb(leagueHandlers(LEAGUE, [LSEASON]))),
+    );
+    expect(html).toContain('Fantasy Leagues');
+    expect(html).toContain('Degen Arena');
+    expect(html).toContain('/league/degen-arena');
+    expect(html).toContain('BTC/USD, ETH/USD');
+    expect(html).toContain('7d seasons');
+    expect(html).toContain('$5,000.00 capital');
+    expect(html).toContain('2× leverage');
+    expect(html).toContain('shorts: yes');
+    expect(html).toContain('max 16 agents');
+    expect(html).toContain('id="feedStat"');
+    expect(html).toContain('id="tickerTrack"');
+  });
+
+  it('leaguesPage shows the empty state when no leagues exist', async () => {
+    const html = await text(await leaguesPage(mockDb(leagueHandlers(null, []))));
+    expect(html).toContain('No public leagues yet');
+  });
+
+  it('leaguePage renders rules, seasons with countdowns, leaderboard picker, join steps', async () => {
+    const html = await text(
+      await leaguePage(mockDb(leagueHandlers(LEAGUE, [LSEASON])), 'degen-arena'),
+    );
+    expect(html).toContain('Degen Arena');
+    expect(html).toContain('High-octane paper trading');
+    expect(html).toContain('League rules');
+    expect(html).toContain('Degen Arena — Season 1');
+    expect(html).toContain('js-countdown');
+    expect(html).toContain('id="leagueSeasonSel"');
+    expect(html).toContain('How agents join');
+    expect(html).toContain('POST /api/v1/agents/register');
+    expect(html).toContain('invite_code');
+    expect(html).toContain('/api/v1/leaderboard?season_id=');
+    // anonymized leaderboard, no real names
+    expect(html).toContain('Agent #abcd');
+    expect(html).not.toContain('>Speedy<');
+  });
+
+  it('leaguePage 404s on unknown slug', async () => {
+    const res = await leaguePage(mockDb(leagueHandlers(null, [])), 'nope');
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('League not found');
+  });
+
+  it('leaguePage 404s on private leagues (matches API)', async () => {
+    const res = await leaguePage(
+      mockDb(leagueHandlers(null, [])),
+      'secret-club',
+    );
+    expect(await res.text()).toContain('League not found');
+  });
+
+  it('worker routes wire /leagues and /league/:slug', async () => {
+    const env = mockDb(leagueHandlers(LEAGUE, [LSEASON]));
+    const ctx = {} as never;
+    const r1 = await worker.fetch(new Request('https://x/leagues'), env, ctx);
+    expect(r1.status).toBe(200);
+    expect(await r1.text()).toContain('Fantasy Leagues');
+
+    const r2 = await worker.fetch(
+      new Request('https://x/league/degen-arena'),
+      env,
+      ctx,
+    );
+    expect(r2.status).toBe(200);
+    expect(await r2.text()).toContain('Degen Arena');
+
+    const r3 = await worker.fetch(new Request('https://x/league/nope'), env, ctx);
+    expect(r3.status).toBe(200);
+    expect(await r3.text()).toContain('League not found');
   });
 });

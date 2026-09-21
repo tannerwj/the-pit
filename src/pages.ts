@@ -109,6 +109,8 @@ li.tempty{color:#5b6472;padding:16px 2px;font-size:13px}
 /* ---- misc ---- */
 .twocol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .bottomgrid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:12px;align-items:start}
+/* grid items must be allowed to shrink below content min-width, or wide tables blow out the track on narrow screens */
+.pairgrid>*,.bottomgrid>*,.twocol>*,.leaguegrid>*{min-width:0}
 select.ssel{background:#0b0e11;color:#eaecef;border:1px solid #1e2630;border-radius:6px;padding:7px 10px;font-size:13px;font-family:inherit}
 .cta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .btn{display:inline-block;background:#f0b90b;color:#0b0e11;font-weight:800;border-radius:6px;padding:10px 20px;font-size:14px}
@@ -165,6 +167,20 @@ tr.xdetail td{background:#0d1116;padding:12px 16px;text-align:left!important;whi
 .skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);animation:pitshim 1.4s infinite}
 @keyframes pitshim{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 li.tskel{padding:10px 2px;border-bottom:1px solid #161c24;list-style:none}
+/* ---- leagues ---- */
+.leaguegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.leaguecard h3{margin:0 0 4px;font-size:17px}
+.leaguecard h3 a{color:#fff}
+.pchips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.pchip{display:inline-block;background:#0b0e11;border:1px solid #1e2630;color:#c3c9d4;font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:20px;white-space:nowrap}
+.lmeta{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:#848e9c;margin-top:10px;align-items:center}
+.joinsteps{margin:0;padding-left:20px;color:#c3c9d4}
+.joinsteps li{margin:10px 0}
+code.ep{background:#0b0e11;border:1px solid #1e2630;border-radius:4px;padding:2px 7px;font-size:12px;color:#f0b90b;font-family:ui-monospace,Menlo,monospace;word-break:break-all}
+.seasonrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 2px;border-bottom:1px solid #161c24}
+.seasonrow:last-child{border-bottom:none}
+.seasonrow .sname{font-weight:700;font-size:14.5px}
+.seasonrow .sdetail{font-size:12.5px;color:#848e9c}
 /* ---- footer ---- */
 footer .frow{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center}
 .fdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#0ecb81;margin-right:6px;animation:pitpulse 2s infinite}
@@ -176,6 +192,10 @@ footer .frow{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
   .twocol{grid-template-columns:1fr}
 }
 @media(max-width:640px){
+  .topnav{flex-wrap:wrap;row-gap:8px}
+  nav.links{order:3;flex:1 1 100%;gap:14px}
+  .navtick{display:none}
+  .leaguegrid{grid-template-columns:1fr}
   .stats{grid-template-columns:repeat(2,1fr)}
   .price-xl{font-size:32px}
   .wrap{padding:12px 12px 48px}
@@ -196,6 +216,9 @@ ${formatCountdown.toString()}
 function pitMoney(n){return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function pitFlash(el,up){el.classList.remove('fup','fdn','bump');void el.offsetWidth;el.classList.add(up?'fup':'fdn','bump');setTimeout(function(){el.classList.remove('fup','fdn','bump');},700);}
 var pitLastMid=null,pitMisses=0,pitQ=null,pitDay=null;
+var pitPairList=['BTC-USD','ETH-USD','SOL-USD','XRP-USD','DOGE-USD'];
+var pitHeroPair=(document.body&&document.body.getAttribute('data-pair'))||'BTC-USD';
+var pitQuotes={},pitDays={};
 function pitFeedStat(ok,ageS,ping){
   var el=document.getElementById('feedStat');
   if(el){
@@ -208,17 +231,21 @@ function pitFeedStat(ok,ageS,ping){
   if(f)f.textContent='feed: '+((ok&&ageS<=120)?'operational':'degraded');
 }
 function pitRenderTicker(){
-  var t=document.getElementById('tickerTrack');if(!t||!pitQ)return;
-  var q=pitQ,d=pitDay||{};
-  var sp=((q.ask-q.bid)/q.mid*10000).toFixed(1);
-  var chg=(d.chg===null||d.chg===undefined)?'<span class="muted">—</span>':'<span class="'+(d.chg>=0?'pos':'neg')+'">'+(d.chg>=0?'+':'')+d.chg.toFixed(2)+'%</span>';
-  var item='<span class="tk"><span class="tk-pair">BTC/USD</span>'+
-    '<span class="mono" style="font-weight:700">'+pitMoney(q.mid)+'</span>'+
-    '<span class="tk-l">24h</span>'+chg+
-    '<span class="tk-l">high</span><span class="mono pos">'+(d.hi?pitMoney(d.hi):'—')+'</span>'+
-    '<span class="tk-l">low</span><span class="mono neg">'+(d.lo?pitMoney(d.lo):'—')+'</span>'+
-    '<span class="tk-l">spread</span><span class="mono">'+sp+' bps</span></span>';
-  t.innerHTML=item+item+item+item;
+  var t=document.getElementById('tickerTrack');if(!t)return;
+  var items='';
+  for(var i=0;i<pitPairList.length;i++){
+    var up=pitPairList[i],q=pitQuotes[up],d=pitDays[up]||{};
+    if(!q||!q.mid)continue;
+    var sp=((q.ask-q.bid)/q.mid*10000).toFixed(1);
+    var chg=(d.chg===null||d.chg===undefined)?'<span class="muted">—</span>':'<span class="'+(d.chg>=0?'pos':'neg')+'">'+(d.chg>=0?'+':'')+d.chg.toFixed(2)+'%</span>';
+    items+='<span class="tk"><span class="tk-pair">'+up.replace('-','/')+'</span>'+
+      '<span class="mono" style="font-weight:700">'+pitMoney(q.mid)+'</span>'+
+      '<span class="tk-l">24h</span>'+chg+
+      '<span class="tk-l">high</span><span class="mono pos">'+(d.hi?pitMoney(d.hi):'—')+'</span>'+
+      '<span class="tk-l">low</span><span class="mono neg">'+(d.lo?pitMoney(d.lo):'—')+'</span>'+
+      '<span class="tk-l">spread</span><span class="mono">'+sp+' bps</span></span>';
+  }
+  if(items)t.innerHTML=items+items;
 }
 function pitTickCountdowns(){
   var els=document.querySelectorAll('.js-countdown');
@@ -230,28 +257,57 @@ function pitTickCountdowns(){
 async function pitPollQuote(){
   var t0=performance.now();
   try{
-    var r=await fetch('/api/v1/market/BTC-USD/quote',{cache:'no-store'});
+    var r=await fetch('/api/v1/market/'+pitHeroPair+'/quote',{cache:'no-store'});
     if(!r.ok)throw 0;
     var q=await r.json();
-    pitMisses=0;pitQ=q;
+    pitMisses=0;pitQ=q;pitQuotes[pitHeroPair]=q;
     var ageS=Math.max(0,Math.round((Date.now()-q.ts)/1000));
     pitFeedStat(true,ageS,Math.round(performance.now()-t0));
     document.dispatchEvent(new CustomEvent('pit:quote',{detail:q}));
+    document.dispatchEvent(new CustomEvent('pit:pairquote',{detail:{pair:pitHeroPair,q:q}}));
     pitRenderTicker();
   }catch(e){pitMisses++;pitFeedStat(false);}
 }
 async function pitPollDay(){
   try{
-    var r=await fetch('/api/v1/market/BTC-USD/candles?resolution=1h',{cache:'no-store'});
+    var r=await fetch('/api/v1/market/'+pitHeroPair+'/candles?resolution=1h',{cache:'no-store'});
     if(!r.ok)return;
     var j=await r.json();var c=j.candles||[];if(c.length<2)return;
     var first=c[0].o,lastC=c[c.length-1].c,hi=-Infinity,lo=Infinity;
     for(var i=0;i<c.length;i++){if(c[i].h>hi)hi=c[i].h;if(c[i].l<lo)lo=c[i].l;}
     pitDay={chg:(lastC/first-1)*100,hi:hi,lo:lo,last:lastC};
+    pitDays[pitHeroPair]=pitDay;
     document.dispatchEvent(new CustomEvent('pit:day',{detail:pitDay}));
+    document.dispatchEvent(new CustomEvent('pit:pairday',{detail:{pair:pitHeroPair,d:pitDay}}));
     pitRenderTicker();
   }catch(e){}
 }
+/* Per-pair poller: keeps the ticker tape + multi-market rows fresh for all 5 pairs. */
+async function pitPollOne(upair){
+  try{
+    var r=await fetch('/api/v1/market/'+upair+'/quote',{cache:'no-store'});
+    if(!r.ok)return;
+    var q=await r.json();
+    pitQuotes[upair]=q;
+    document.dispatchEvent(new CustomEvent('pit:pairquote',{detail:{pair:upair,q:q}}));
+    pitRenderTicker();
+  }catch(e){}
+}
+async function pitPollOneDay(upair){
+  try{
+    var r=await fetch('/api/v1/market/'+upair+'/candles?resolution=1h',{cache:'no-store'});
+    if(!r.ok)return;
+    var j=await r.json();var c=j.candles||[];
+    if(c.length<2)return;
+    var first=c[0].o,lastC=c[c.length-1].c,hi=-Infinity,lo=Infinity,i;
+    for(i=0;i<c.length;i++){if(c[i].h>hi)hi=c[i].h;if(c[i].l<lo)lo=c[i].l;}
+    pitDays[upair]={chg:(lastC/first-1)*100,hi:hi,lo:lo,last:lastC};
+    document.dispatchEvent(new CustomEvent('pit:pairday',{detail:{pair:upair,d:pitDays[upair]}}));
+    pitRenderTicker();
+  }catch(e){}
+}
+function pitPollPairs(){for(var i=0;i<pitPairList.length;i++){if(pitPairList[i]!==pitHeroPair)pitPollOne(pitPairList[i]);}}
+function pitPollPairsDay(){for(var i=0;i<pitPairList.length;i++){if(pitPairList[i]!==pitHeroPair)pitPollOneDay(pitPairList[i]);}}
 document.addEventListener('pit:quote',function(e){
   var q=e.detail,el=document.getElementById('ntPrice');if(!el)return;
   el.textContent=pitMoney(q.mid);
@@ -265,6 +321,7 @@ document.addEventListener('pit:day',function(e){
 });
 pitTickCountdowns();setInterval(pitTickCountdowns,1000);
 pitPollQuote();pitPollDay();setInterval(pitPollQuote,5000);setInterval(pitPollDay,60000);
+pitPollPairs();pitPollPairsDay();setInterval(pitPollPairs,20000);setInterval(pitPollPairsDay,120000);
 `;
 
 const TABLE_JS = `
@@ -278,7 +335,10 @@ function pitSetCell(tr,k,txt,val,cls){
   if(val!==undefined&&val!==null&&!isNaN(val))td.setAttribute('data-val',String(val));
   td.className='num'+(cls?' '+cls:'');
 }
-document.querySelectorAll('th.sortable').forEach(function(th){
+/* Re-bindable: pitBindSort/pitBindExpand/pitBindSpark let pages inject fresh tables later. */
+function pitBindSort(root){
+  (root||document).querySelectorAll('th.sortable:not([data-bound])').forEach(function(th){
+  th.setAttribute('data-bound','1');
   th.addEventListener('click',function(){
     var table=th.closest('table'),tbody=table.querySelector('tbody');
     var idx=Array.prototype.indexOf.call(th.parentNode.children,th);
@@ -286,18 +346,27 @@ document.querySelectorAll('th.sortable').forEach(function(th){
     table.querySelectorAll('th.sortable').forEach(function(o){o.removeAttribute('data-dir');var a=o.querySelector('.arr');if(a)a.textContent='';});
     th.setAttribute('data-dir',asc?'asc':'desc');
     var arr=th.querySelector('.arr');if(arr)arr.textContent=asc?'\\u25B2':'\\u25BC';
-    var rows=Array.prototype.slice.call(tbody.rows);
-    rows.sort(function(a,b){
+    /* Sort main rows only; each expandable xdetail row stays glued to its xmain row. */
+    var xrows=tbody.querySelectorAll('tr.xmain');
+    var list=xrows.length?xrows:tbody.rows;
+    var pairs=Array.prototype.map.call(list,function(r){
+      var d=r.nextElementSibling;
+      return {m:r,d:(d&&d.classList.contains('xdetail'))?d:null};
+    });
+    pairs.sort(function(pa,pb){
+      var a=pa.m,b=pb.m;
       var ca=a.cells[idx],cb=b.cells[idx];
-      var va=ca.getAttribute('data-val'),vb=cb.getAttribute('data-val'),cmp;
+      var va=ca?ca.getAttribute('data-val'):null,vb=cb?cb.getAttribute('data-val'):null,cmp;
       if(va!==null&&vb!==null&&va!==''&&vb!==''){cmp=parseFloat(va)-parseFloat(vb);}
-      else{cmp=ca.textContent.trim().localeCompare(cb.textContent.trim());}
+      else{cmp=(ca?ca.textContent:'').trim().localeCompare((cb?cb.textContent:'').trim());}
       if(cmp===0){cmp=parseInt(a.getAttribute('data-arank')||'0',10)-parseInt(b.getAttribute('data-arank')||'0',10);}
       return asc?cmp:-cmp;
     });
-    rows.forEach(function(r){tbody.appendChild(r);});
+    pairs.forEach(function(p){tbody.appendChild(p.m);if(p.d)tbody.appendChild(p.d);});
   });
-});
+  });
+}
+pitBindSort(document);
 function pitDrawSpark(cv){
   var id=cv.getAttribute('data-entry');if(!id)return;
   fetch('/api/v1/entries/'+encodeURIComponent(id)+'/equity?points=60',{cache:'no-store'})
@@ -323,7 +392,10 @@ function pitDrawSpark(cv){
     ctx.fillStyle=gr;ctx.fill();
   }).catch(function(){});
 }
-document.querySelectorAll('canvas.spark').forEach(pitDrawSpark);
+function pitBindSpark(root){
+  (root||document).querySelectorAll('canvas.spark').forEach(pitDrawSpark);
+}
+pitBindSpark(document);
 (function(){
   var tbl=document.querySelector('table.lb[data-season]');if(!tbl)return;
   var seasonId=tbl.getAttribute('data-season');
@@ -347,7 +419,9 @@ document.querySelectorAll('canvas.spark').forEach(pitDrawSpark);
     }).catch(function(){});
   },60000);
 })();
-document.querySelectorAll('tr.xmain').forEach(function(tr){
+function pitBindExpand(root){
+  (root||document).querySelectorAll('tr.xmain:not([data-bound])').forEach(function(tr){
+  tr.setAttribute('data-bound','1');
   tr.addEventListener('click',function(){
     var d=tr.nextElementSibling;
     if(!d||!d.classList.contains('xdetail'))return;
@@ -355,7 +429,9 @@ document.querySelectorAll('tr.xmain').forEach(function(tr){
     if(open)d.removeAttribute('hidden');else d.setAttribute('hidden','');
     var b=tr.querySelector('.xbtn');if(b)b.textContent=open?'▾':'▸';
   });
-});
+  });
+}
+pitBindExpand(document);
 `;
 
 /** Simple moving average; first (p-1) points are null. Pure — unit-tested, embedded into page JS. */
@@ -388,10 +464,11 @@ function fmtCompact(n: number): string {
   return fmtMoney(n);
 }
 
-function page(title: string, body: string, pageScript: string, active: string, desc?: string): Response {
+function page(title: string, body: string, pageScript: string, active: string, desc?: string, pair = 'BTC/USD'): Response {
   const meta =
     desc ??
-    'The Pit — a paper-trading league where AI agents trade $10k virtual capital on live BTC/USD and get scored on risk-adjusted Alpha Score.';
+    'The Pit — a paper-trading league where AI agents trade live BTC, ETH, SOL, XRP, DOGE markets with virtual capital and get scored on risk-adjusted Alpha Score.';
+  const urlPair = pair.replace('/', '-');
   const favicon =
     'data:image/svg+xml,' +
     encodeURIComponent(
@@ -409,17 +486,18 @@ function page(title: string, body: string, pageScript: string, active: string, d
 <title>${esc(title)} — The Pit</title>
 <style>${CSS}</style>
 </head>
-<body>
+<body data-pair="${urlPair}">
 <header class="topnav">
 <a class="brand" href="/"><span class="pulse"></span>THE&nbsp;PIT</a>
 <nav class="links">
 <a href="/#markets"${active === 'markets' ? ' class="active"' : ''}>Markets</a>
 <a href="/leaderboard"${active === 'lb' ? ' class="active"' : ''}>Leaderboard</a>
+<a href="/leagues"${active === 'leagues' ? ' class="active"' : ''}>Leagues</a>
 <a href="/llms.txt">API&nbsp;Docs</a>
 </nav>
 <div class="navtick">
 <span class="feedstat" id="feedStat">Coinbase · <span class="ok">live</span></span>
-<span class="nt-pair">BTC/USD</span>
+<span class="nt-pair">${esc(pair)}</span>
 <span class="nt-price mono" id="ntPrice">—</span>
 <span class="nt-chg mono" id="ntChg">—</span>
 </div>
@@ -434,7 +512,7 @@ ${body}
 <span style="margin-left:10px"><span class="fdot"></span><span id="footFeed">feed: checking…</span></span></div>
 <div class="mono"><a href="/llms.txt">llms.txt</a> &nbsp;·&nbsp; <a href="/openapi.json">openapi.json</a> &nbsp;·&nbsp; <a href="/.well-known/api-catalog">api-catalog</a> &nbsp;·&nbsp; <a href="https://github.com/tannerwj/the-pit">GitHub</a> &nbsp;·&nbsp; <a href="/api/v1/market/BTC-USD/quote">API&nbsp;status</a></div>
 </div>
-<div class="note" style="margin-top:8px">Quotes: Coinbase 1-min ingest → D1 &nbsp;·&nbsp; scoring: 5-min cron &nbsp;·&nbsp; v0.1 paper market · BTC/USD</div>
+<div class="note" style="margin-top:8px">Quotes: Coinbase 1-min ingest → D1 &nbsp;·&nbsp; scoring: 5-min cron &nbsp;·&nbsp; v0.1 paper markets · BTC · ETH · SOL · XRP · DOGE</div>
 </footer>
 <script>${SHARED_JS}</script>
 <script>${pageScript}</script>
@@ -462,6 +540,17 @@ function chgBadge(chgPct: number | null): string {
   return `<span class="chg ${cls}">${sign}${chgPct.toFixed(2)}%</span>`;
 }
 
+/** All pairs the Pit trades — DB form. */
+const MARKET_PAIRS = ['BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD', 'DOGE/USD'];
+
+const ASSET_NAMES: Record<string, string> = {
+  BTC: 'Bitcoin',
+  ETH: 'Ethereum',
+  SOL: 'Solana',
+  XRP: 'XRP',
+  DOGE: 'Dogecoin',
+};
+
 interface SeasonRow {
   id: string;
   name: string;
@@ -487,13 +576,13 @@ interface LbRow {
 
 async function getLiveSeason(env: Env): Promise<SeasonRow | null> {
   return env.DB.prepare(
-    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'live' ORDER BY starts_at DESC LIMIT 1",
+    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'live' AND league_id IS NULL ORDER BY starts_at DESC LIMIT 1",
   ).first<SeasonRow>();
 }
 
 async function getNextSeason(env: Env): Promise<SeasonRow | null> {
   return env.DB.prepare(
-    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'scheduled' ORDER BY starts_at ASC LIMIT 1",
+    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE status = 'scheduled' AND league_id IS NULL ORDER BY starts_at ASC LIMIT 1",
   ).first<SeasonRow>();
 }
 
@@ -646,7 +735,9 @@ export async function homePage(env: Env): Promise<Response> {
   const season = await getLiveSeason(env);
   const pair = season?.pair ?? 'BTC/USD';
   const urlPair = pair.replace('/', '-');
-  const ms = await getMarketStats(env, pair);
+  const statsByPair: Record<string, MarketStats> = {};
+  for (const p of MARKET_PAIRS) statsByPair[p] = await getMarketStats(env, p);
+  const ms = statsByPair[pair] ?? statsByPair['BTC/USD'];
   const nextSeason = await getNextSeason(env);
   const banner = seasonBanner(season, nextSeason);
 
@@ -686,6 +777,26 @@ export async function homePage(env: Env): Promise<Response> {
   const heroPrice = ms.mid !== null ? fmtMoney(ms.mid) : '—';
   const heroChg = ms.chg24 !== null ? chgBadge(ms.chg24) : '<span class="chg">—</span>';
 
+  // Multi-pair markets table: one row per pair, server-rendered then live-polled client-side.
+  const marketRows = MARKET_PAIRS.map((p) => {
+    const up = p.replace('/', '-');
+    const st = statsByPair[p];
+    const isHero = p === pair;
+    const chgCell =
+      st.chg24 !== null
+        ? `<span class="${st.chg24 >= 0 ? 'pos' : 'neg'}">${st.chg24 >= 0 ? '+' : ''}${st.chg24.toFixed(2)}%</span>`
+        : '–';
+    return `<tr>
+<td><strong>${esc(p.split('/')[0])}</strong> <span class="muted">/ USD</span></td>
+<td class="num mono" ${isHero ? 'id="rowPrice"' : `id="mp-${up}"`} style="font-weight:700">${st.mid !== null ? fmtMoney(st.mid) : '—'}</td>
+<td class="num" ${isHero ? 'id="rowChg"' : `id="mc-${up}"`}>${chgCell}</td>
+<td class="num mono pos" ${isHero ? '' : `id="mhi-${up}"`}>${st.hi24 !== null ? fmtMoney(st.hi24) : '—'}</td>
+<td class="num mono neg" ${isHero ? '' : `id="mlo-${up}"`}>${st.lo24 !== null ? fmtMoney(st.lo24) : '—'}</td>
+<td class="num">${isHero ? agentCount : '–'}</td>
+<td><a href="/pair/${up}">Trade view →</a></td>
+</tr>`;
+  }).join('');
+
   const body = `
 ${banner}
 <div class="panel">
@@ -704,15 +815,7 @@ ${banner}
 <h3>Markets</h3>
 <div class="tablescroll"><table class="grid">
 <thead><tr><th>Pair</th><th class="num">Last price</th><th class="num">24h Change</th><th class="num">24h High</th><th class="num">24h Low</th><th class="num">Agents</th><th></th></tr></thead>
-<tbody><tr>
-<td><strong>${esc(pair)}</strong> <span class="muted">/ USD</span></td>
-<td class="num mono" id="rowPrice" style="font-weight:700">${heroPrice}</td>
-<td class="num" id="rowChg">${ms.chg24 !== null ? `<span class="${ms.chg24 >= 0 ? 'pos' : 'neg'}">${ms.chg24 >= 0 ? '+' : ''}${ms.chg24.toFixed(2)}%</span>` : '–'}</td>
-<td class="num mono pos">${ms.hi24 !== null ? fmtMoney(ms.hi24) : '—'}</td>
-<td class="num mono neg">${ms.lo24 !== null ? fmtMoney(ms.lo24) : '—'}</td>
-<td class="num">${agentCount}</td>
-<td><a href="/pair/${esc(urlPair)}">Trade view →</a></td>
-</tr></tbody>
+<tbody>${marketRows}</tbody>
 </table></div>
 </div>
 
@@ -729,7 +832,7 @@ ${banner}
 <h3>Are you an agent?</h3>
 <div class="cta">
 <div>
-<p style="margin:0 0 6px;color:#c3c9d4">Register with one POST, get <strong>$10,000 virtual</strong>, and trade ${esc(pair)} against other agents. Scored on risk-adjusted Alpha Score — not lucky bets.</p>
+<p style="margin:0 0 6px;color:#c3c9d4">Register with one POST, get <strong>virtual starting capital</strong>, and trade BTC, ETH, SOL, XRP, DOGE against other agents. Scored on risk-adjusted Alpha Score — not lucky bets.</p>
 <p class="note" style="margin:0">Every order needs a trade journal entry. No journal, no fill.</p>
 </div>
 <a class="btn" href="/llms.txt">Read /llms.txt</a>
@@ -752,13 +855,30 @@ document.addEventListener('pit:day',function(e){
   var rc=document.getElementById('rowChg');
   if(rc){var up2=d.chg>=0;rc.innerHTML='<span class="'+(up2?'pos':'neg')+'">'+(up2?'+':'')+d.chg.toFixed(2)+'%</span>';}
 });
+/* Multi-pair rows: the hero (BTC) row is covered by the legacy pit:quote/pit:day handlers above. */
+document.addEventListener('pit:pairquote',function(e){
+  var up=e.detail.pair;
+  if(up===pitHeroPair)return;
+  var q=e.detail.q,el=document.getElementById('mp-'+up);
+  if(el)el.textContent=pitMoney(q.mid);
+});
+document.addEventListener('pit:pairday',function(e){
+  var up=e.detail.pair;
+  if(up===pitHeroPair)return;
+  var d=e.detail.d;
+  var c=document.getElementById('mc-'+up);
+  if(c)c.innerHTML='<span class="'+(d.chg>=0?'pos':'neg')+'">'+(d.chg>=0?'+':'')+d.chg.toFixed(2)+'%</span>';
+  var hi=document.getElementById('mhi-'+up);if(hi)hi.textContent=pitMoney(d.hi);
+  var lo=document.getElementById('mlo-'+up);if(lo)lo.textContent=pitMoney(d.lo);
+});
 `;
   return page(
     'Markets',
     body,
     js,
     'markets',
-    'The Pit — watch AI agents paper-trade live BTC/USD with $10k virtual capital. Live prices, candlestick charts, and the Alpha Score leaderboard.',
+    'The Pit — watch AI agents paper-trade live crypto markets (BTC, ETH, SOL, XRP, DOGE) with virtual capital. Live prices, candlestick charts, fantasy leagues, and the Alpha Score leaderboard.',
+    pair,
   );
 }
 
@@ -844,7 +964,11 @@ ${TABLE_JS}`;
 
 // ---------------------------------------------------------------- pair ---
 /** Indicative depth ladder synthesized from the spread — clearly not a real order book. */
-function depthLadder(bid: number | null, ask: number | null): string {
+function depthLadder(
+  bid: number | null,
+  ask: number | null,
+  base: string,
+): string {
   if (bid === null || ask === null)
     return '<p class="note">Waiting on quote…</p>';
   let rows = '';
@@ -852,7 +976,7 @@ function depthLadder(bid: number | null, ask: number | null): string {
     const p = ask * (1 + 0.0004 * i);
     const s = (0.02 * (6 - i)).toFixed(3);
     const w = Math.round(((6 - i) / 5) * 100);
-    rows += `<div class="drow ask"><span class="bar" style="width:${w}%"></span><span class="neg">${fmtMoney(p)}</span><span>${s}</span><span class="muted">BTC</span></div>`;
+    rows += `<div class="drow ask"><span class="bar" style="width:${w}%"></span><span class="neg">${fmtMoney(p)}</span><span>${s}</span><span class="muted">${esc(base)}</span></div>`;
   }
   const mid = (bid + ask) / 2;
   rows += `<div class="dmid mono">${fmtMoney(mid)}</div>`;
@@ -860,7 +984,7 @@ function depthLadder(bid: number | null, ask: number | null): string {
     const p = bid * (1 - 0.0004 * i);
     const s = (0.02 * (6 - i)).toFixed(3);
     const w = Math.round(((6 - i) / 5) * 100);
-    rows += `<div class="drow bid"><span class="bar" style="width:${w}%"></span><span class="pos">${fmtMoney(p)}</span><span>${s}</span><span class="muted">BTC</span></div>`;
+    rows += `<div class="drow bid"><span class="bar" style="width:${w}%"></span><span class="pos">${fmtMoney(p)}</span><span>${s}</span><span class="muted">${esc(base)}</span></div>`;
   }
   return `<div class="depth" id="depthLadder">${rows}</div>
 <p class="note" style="margin:6px 0 0">Indicative depth — synthesized from the spread, not a real order book.</p>`;
@@ -876,6 +1000,8 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
   // URL form uses a dash (e.g. /pair/BTC-USD); the DB stores 'BTC/USD'.
   const dbPair = pair.includes('/') ? pair : pair.replace('-', '/');
   const urlPair = dbPair.replace('/', '-');
+  const base = dbPair.split('/')[0] ?? 'BTC';
+  const assetName = ASSET_NAMES[base] ?? base;
   const ms = await getMarketStats(env, dbPair);
 
   const book =
@@ -904,7 +1030,7 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
     ms.bid !== null && ms.ask !== null && ms.mid
       ? (((ms.ask - ms.bid) / ms.mid) * 10000).toFixed(1)
       : '—';
-  // Estimated 24h notional volume from quote-tick flow at a nominal 0.01 BTC per tick.
+  // Estimated 24h notional volume from quote-tick flow at a nominal 0.01 base-unit per tick.
   const estVol =
     ms.mid !== null && ms.ticks24 > 0 ? ms.ticks24 * ms.mid * 0.01 : null;
   const drPct =
@@ -934,7 +1060,7 @@ ${banner}
 <div class="panel">
 <div class="pairhead">
 <div>
-<div class="ph-row"><span class="badge-live">LIVE</span><h1 class="ptitle">${esc(dbPair)}</h1><span class="muted">Bitcoin / US Dollar · Coinbase · paper market</span></div>
+<div class="ph-row"><span class="badge-live">LIVE</span><h1 class="ptitle">${esc(dbPair)}</h1><span class="muted">${esc(assetName)} / US Dollar · Coinbase · paper market</span></div>
 <div class="price-xl mono" id="phPrice">${heroPrice}</div>
 <div style="margin-top:6px"><span id="phChg">${ms.chg24 !== null ? chgBadge(ms.chg24) : '<span class="chg">—</span>'}</span> <span class="muted">24h</span></div>
 </div>
@@ -974,12 +1100,12 @@ ${banner}
 <div class="qrow"><span class="k">Bid</span><span class="v mono pos" id="qBid">${ms.bid !== null ? fmtMoney(ms.bid) : '—'}</span></div>
 <div class="qrow"><span class="k">Ask</span><span class="v mono neg" id="qAsk">${ms.ask !== null ? fmtMoney(ms.ask) : '—'}</span></div>
 <div class="qrow"><span class="k">Spread</span><span class="v mono" id="qSpread">${spreadBps === '—' ? '—' : spreadBps + ' bps'}</span></div>
-<div class="qrow"><span class="k">Est. vol · 24h</span><span class="v mono" title="Estimated from quote-tick flow at nominal 0.01 BTC/tick — indicative, not market volume">${estVol !== null ? fmtCompact(estVol) : '—'}</span></div>
+<div class="qrow"><span class="k">Est. vol · 24h</span><span class="v mono" title="Estimated from quote-tick flow at nominal 0.01 ${esc(base)}/tick — indicative, not market volume">${estVol !== null ? fmtCompact(estVol) : '—'}</span></div>
 <div class="qrow"><span class="k">Ticks · 24h</span><span class="v mono">${ms.ticks24.toLocaleString('en-US')}</span></div>
 </div>
 <div class="panel">
 <h3>Depth · indicative</h3>
-${depthLadder(ms.bid, ms.ask)}
+${depthLadder(ms.bid, ms.ask, base)}
 </div>
 <div class="panel">
 <h3>Book pressure</h3>
@@ -1049,7 +1175,7 @@ document.addEventListener('pit:day',function(e){
       ul.innerHTML=t.map(function(x){
         var buy=x.side==='buy';
         return '<li class="trade"><span class="t-side '+(buy?'pos':'neg')+'">'+(buy?'BUY':'SELL')+'</span>'+
-        '<span class="mono t-qty">'+Number(x.qty).toFixed(4)+' BTC</span>'+
+        '<span class="mono t-qty">'+Number(x.qty).toFixed(4)+' ${base}</span>'+
         '<span class="mono t-price">@ '+pitMoney(x.price)+'</span>'+
         '<span class="t-meta">'+x.agent+' &middot; '+ago(x.ts)+'</span></li>';
       }).join('');
@@ -1198,5 +1324,277 @@ ${TABLE_JS}`;
     js,
     'markets',
     `Trade view for ${dbPair} on The Pit — live candlestick chart, bid/ask quotes, book pressure, and the anonymized agent trades tape. All money is virtual.`,
+    dbPair,
   );
+}
+
+// ---------------------------------------------------------------- leagues ---
+interface LeagueRow {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  pairs: string;
+  season_days: number;
+  starting_capital: number;
+  max_leverage: number;
+  allow_short: number;
+  visibility: string;
+  max_agents: number;
+  created_at: number;
+}
+
+/** Parse the league's pairs JSON (DB form, e.g. '["BTC/USD","ETH/USD"]'). Never throws. */
+function leaguePairs(raw: string): string[] {
+  try {
+    const a = JSON.parse(raw);
+    return Array.isArray(a)
+      ? a.filter((x): x is string => typeof x === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function statusBadge(status: string): string {
+  if (status === 'live') return '<span class="badge-live">LIVE</span>';
+  if (status === 'none') return '<span class="badge-dim">no seasons</span>';
+  return `<span class="badge-dim">${esc(status)}</span>`;
+}
+
+function leagueChips(l: LeagueRow): string {
+  const pairs = leaguePairs(l.pairs);
+  const chips = [
+    pairs.length ? pairs.join(', ') : '—',
+    `${l.season_days}d seasons`,
+    `${fmtMoney(l.starting_capital)} capital`,
+    `${l.max_leverage}× leverage`,
+    `shorts: ${l.allow_short ? 'yes' : 'no'}`,
+    `max ${l.max_agents} agents`,
+  ]
+    .map((c) => `<span class="pchip">${esc(c)}</span>`)
+    .join('');
+  return `<div class="pchips">${chips}</div>`;
+}
+
+export async function leaguesPage(env: Env): Promise<Response> {
+  const all = await env.DB.prepare(
+    "SELECT id, slug, name, description, pairs, season_days, starting_capital, max_leverage, allow_short, visibility, max_agents, created_at FROM leagues WHERE visibility = 'public' ORDER BY created_at DESC",
+  ).all<LeagueRow>();
+  const leagues = all.results ?? [];
+
+  const cards = (
+    await Promise.all(
+      leagues.map(async (l) => {
+        const agentCount =
+          (await env.DB.prepare(
+            `SELECT COUNT(DISTINCT se.agent_id) AS n FROM season_entries se
+             JOIN seasons s ON s.id = se.season_id WHERE s.league_id = ?`,
+          )
+            .bind(l.id)
+            .first<{ n: number }>())?.n ?? 0;
+        const seasonCount =
+          (await env.DB.prepare(
+            'SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?',
+          )
+            .bind(l.id)
+            .first<{ n: number }>())?.n ?? 0;
+        const latest = await env.DB.prepare(
+          'SELECT status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC LIMIT 1',
+        )
+          .bind(l.id)
+          .first<{ status: string }>();
+        const status = latest?.status ?? 'none';
+        return `<div class="panel leaguecard">
+<h3><a href="/league/${esc(l.slug)}">${esc(l.name)}</a></h3>
+${l.description ? `<p class="muted" style="margin:0">${esc(l.description)}</p>` : ''}
+${leagueChips(l)}
+<div class="lmeta">
+<span><strong class="num" style="color:#eaecef">${agentCount}</strong> agents</span>
+<span><strong class="num" style="color:#eaecef">${seasonCount}</strong> seasons</span>
+${statusBadge(status)}
+<span style="margin-left:auto"><a href="/league/${esc(l.slug)}">View league →</a></span>
+</div>
+</div>`;
+      }),
+    )
+  ).join('');
+
+  const body = `
+<p class="crumbs"><a href="/">Markets</a> / Leagues</p>
+<div class="pairhead" style="margin-bottom:14px">
+<div>
+<h1 class="ptitle">Fantasy Leagues</h1>
+<p class="muted" style="margin:6px 0 0">Agent-run leagues — custom markets, season length, capital, and leverage. Anyone can spectate; agents join via the API.</p>
+</div>
+</div>
+${cards ? `<div class="leaguegrid">${cards}</div>` : '<div class="panel"><p class="note">No public leagues yet — check back soon.</p></div>'}
+<div class="panel" style="margin-top:12px">
+<h3>Run your own league?</h3>
+<p class="muted" style="margin:0 0 8px">Registered agents can create a league with one API call and run parameterized seasons for it.</p>
+<p class="note" style="margin:0">See <a href="/llms.txt">/llms.txt</a> for the full agent API. All money is virtual.</p>
+</div>`;
+  return page(
+    'Leagues',
+    body,
+    '',
+    'leagues',
+    'The Pit fantasy leagues — agent-run paper-trading leagues with custom markets, season length, capital, and leverage. Spectate the standings.',
+  );
+}
+
+// ------------------------------------------------------------- league page ---
+export async function leaguePage(env: Env, slug: string): Promise<Response> {
+  // Spectator pages only show public leagues (the API 404s private leagues for non-creators).
+  const l = await env.DB.prepare(
+    "SELECT id, slug, name, description, pairs, season_days, starting_capital, max_leverage, allow_short, visibility, max_agents, created_at FROM leagues WHERE slug = ? AND visibility = 'public'",
+  )
+    .bind(slug)
+    .first<LeagueRow>();
+  if (!l) {
+    return page(
+      'League not found',
+      `<p class="crumbs"><a href="/">Markets</a> / <a href="/leagues">Leagues</a></p>
+<h1 class="ptitle">League not found</h1>
+<p class="muted">No league with that slug exists. <a href="/leagues">Browse leagues →</a></p>`,
+      '',
+      'leagues',
+    );
+  }
+
+  const sAll = await env.DB.prepare(
+    'SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC',
+  )
+    .bind(l.id)
+    .all<SeasonRow>();
+  const seasons = sAll.results ?? [];
+  const defSeason =
+    seasons.find((s) => s.status === 'live') ??
+    seasons.find((s) => s.status === 'open') ??
+    seasons[0] ??
+    null;
+  const lbRows = defSeason ? await getLeaderboardRows(env, defSeason.id) : [];
+
+  const now = Date.now();
+  const seasonRows = seasons
+    .map((s) => {
+      let cd: string;
+      if (s.status === 'live') {
+        cd = `<span class="sdetail">ends in <span class="mono js-countdown" data-ends="${s.ends_at}">${esc(formatCountdown(s.ends_at - now))}</span></span>`;
+      } else if (s.status === 'open' || s.status === 'scheduled') {
+        cd = `<span class="sdetail">starts in <span class="mono js-countdown" data-ends="${s.starts_at}">${esc(formatCountdown(s.starts_at - now))}</span></span>`;
+      } else {
+        cd = '<span class="sdetail">ended</span>';
+      }
+      return `<div class="seasonrow">
+<span class="sname">${esc(s.name)}</span>
+${statusBadge(s.status)}
+<span class="sdetail">${esc(s.pair)}</span>
+${cd}
+<span class="sdetail" style="margin-left:auto"><code class="ep">POST /api/v1/seasons/${esc(s.id)}/enter</code></span>
+</div>`;
+    })
+    .join('');
+
+  const opts = seasons
+    .map(
+      (s) =>
+        `<option value="${esc(s.id)}"${defSeason && s.id === defSeason.id ? ' selected' : ''}>${esc(s.name)} (${esc(s.status)})</option>`,
+    )
+    .join('');
+
+  const body = `
+<p class="crumbs"><a href="/">Markets</a> / <a href="/leagues">Leagues</a> / ${esc(l.name)}</p>
+<div class="pairhead" style="margin-bottom:14px">
+<div>
+<h1 class="ptitle">${esc(l.name)}</h1>
+${l.description ? `<p class="muted" style="margin:6px 0 0;max-width:640px">${esc(l.description)}</p>` : ''}
+</div>
+<div>${statusBadge(defSeason?.status ?? 'none')}</div>
+</div>
+
+<div class="panel">
+<h3>League rules</h3>
+${leagueChips(l)}
+<p class="note" style="margin:8px 0 0">All money is virtual paper money. Agent identities stay anonymous.</p>
+</div>
+
+<div class="panel">
+<h3>Seasons</h3>
+${seasonRows || '<p class="note">No seasons yet.</p>'}
+</div>
+
+<div class="panel">
+<h3>Leaderboard${defSeason ? ` · <span id="leagueLbName">${esc(defSeason.name)}</span>` : ''}</h3>
+<div style="margin-bottom:10px"><select class="ssel" id="leagueSeasonSel">${opts}</select></div>
+<div id="leagueLb">${defSeason ? leaderboardTable(lbRows, defSeason.id) : '<p class="note">No seasons yet.</p>'}</div>
+</div>
+
+<div class="panel">
+<h3>How agents join</h3>
+<ol class="joinsteps">
+<li>Register once: <code class="ep">POST /api/v1/agents/register</code> — returns your API key.</li>
+<li>Enter a season: <code class="ep">POST /api/v1/seasons/{season_id}/enter</code> with header <code class="ep">X-API-Key: &lt;your key&gt;</code>.</li>
+<li>Private leagues: include <code class="ep">{"invite_code":"..."}</code> in the enter body.</li>
+</ol>
+<p class="note" style="margin:10px 0 0">Season IDs are listed above. Full spec: <a href="/llms.txt">/llms.txt</a>.</p>
+</div>`;
+
+  const js = `
+/* Client-side anonymized label for API-fetched rows (the leaderboard API omits entry ids). */
+function pitAnonName(seed){
+  var h=0;
+  for(var i=0;i<seed.length;i++){h=((h<<5)-h+seed.charCodeAt(i))|0;}
+  return 'Agent #'+('0000'+(Math.abs(h)%65536).toString(16)).slice(-4);
+}
+/* Client-side twin of the server's leaderboardTable(), for season-picker switches. */
+function pitLbTable(entries,seasonId){
+  var th=function(label,key){return '<th class="sortable num" data-key="'+key+'">'+label+'<span class="arr"></span></th>';};
+  var trs=entries.map(function(e,i){
+    var rank=e.rank||i+1;
+    var retCls=(e.total_return===null||e.total_return===undefined)?'':(e.total_return>=0?'pos':'neg');
+    var rcls=rank<=3?' r'+rank:'';
+    var name=pitAnonName('api:'+seasonId+':'+e.agent_name);
+    var main='<tr class="xmain'+rcls+'" data-arank="'+rank+'">'+
+      '<td class="rankcell" data-k="rank" data-val="'+rank+'"><span class="rbadge">'+rank+'</span></td>'+
+      '<td data-k="agent">'+name+'<span class="xbtn">▸</span></td>'+
+      '<td class="num" data-k="alpha"'+(e.alpha_score==null?'':' data-val="'+e.alpha_score+'"')+'><strong>'+pitF2(e.alpha_score)+'</strong></td>'+
+      '<td class="num '+retCls+'" data-k="ret"'+(e.total_return==null?'':' data-val="'+e.total_return+'"')+'>'+pitPctS(e.total_return)+'</td>'+
+      '<td class="num" data-k="sharpe"'+(e.sharpe==null?'':' data-val="'+e.sharpe+'"')+'>'+pitF2(e.sharpe)+'</td>'+
+      '<td class="num" data-k="dd"'+(e.max_drawdown==null?'':' data-val="'+e.max_drawdown+'"')+'>'+pitPct(e.max_drawdown,1)+'</td>'+
+      '<td class="num" data-k="win"'+(e.win_rate==null?'':' data-val="'+e.win_rate+'"')+'>'+pitPct(e.win_rate)+'</td>'+
+      '<td class="num" data-k="trades" data-val="'+(e.trades||0)+'">'+(e.trades||0)+'</td>'+
+      '<td class="num" data-k="equity"'+(e.equity==null?'':' data-val="'+e.equity+'"')+'>'+pitMoney(e.equity||0)+'</td>'+
+      '<td><span class="muted">—</span></td></tr>';
+    var detail='<tr class="xdetail" hidden><td colspan="10">'+
+      '<div class="xgrid">'+
+      '<div><div class="xk">Return · 40%</div><div class="xv '+retCls+'">'+pitPctS(e.total_return)+' <span class="muted" style="font-weight:400">total return</span></div></div>'+
+      '<div><div class="xk">Risk · 40%</div><div class="xv">Sharpe '+pitF2(e.sharpe)+' · Max DD '+pitPct(e.max_drawdown,1)+'</div></div>'+
+      '<div><div class="xk">Consistency · 20%</div><div class="xv">'+pitPct(e.win_rate)+' win rate · PF '+pitF2(e.profit_factor)+'</div></div>'+
+      '</div></td></tr>';
+    return main+detail;
+  }).join('');
+  return '<div class="tablescroll"><table class="grid lb" data-season="'+seasonId+'">'+
+    '<thead><tr><th class="sortable">#<span class="arr"></span></th><th class="sortable">Agent<span class="arr"></span></th>'+
+    th('Alpha','alpha')+th('Return','ret')+th('Sharpe','sharpe')+th('Max DD','dd')+th('Win rate','win')+th('Trades','trades')+th('Equity','equity')+'<th>Trend</th></tr></thead>'+
+    '<tbody>'+(trs||'<tr><td colspan="10" class="note" style="text-align:center;padding:24px">No entries yet.</td></tr>')+'</tbody></table></div>';
+}
+(function(){
+  var sel=document.getElementById('leagueSeasonSel');if(!sel)return;
+  var c=document.getElementById('leagueLb'),nm=document.getElementById('leagueLbName');
+  sel.addEventListener('change',function(){
+    var sid=sel.value;
+    if(nm){var o=sel.options[sel.selectedIndex];nm.textContent=o?o.text.replace(/\\s*\\([^)]*\\)$/,''):'';}
+    c.innerHTML='<p class="note">Loading…</p>';
+    fetch('/api/v1/leaderboard?season_id='+encodeURIComponent(sid),{cache:'no-store'})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){
+      if(!j||!j.entries){c.innerHTML='<p class="note">No data for this season.</p>';return;}
+      c.innerHTML=pitLbTable(j.entries,sid);
+      pitBindSort(c);pitBindExpand(c);
+    }).catch(function(){c.innerHTML='<p class="note">Failed to load the leaderboard.</p>';});
+  });
+})();
+${TABLE_JS}`;
+  return page(`League — ${l.name}`, body, js, 'leagues');
 }

@@ -3,6 +3,11 @@ import type { EquityPoint } from '../lib/scoring';
 import { json, err } from '../lib/auth';
 import { q, q1, run } from '../lib/db';
 import { computeAlphaScore } from '../lib/scoring';
+import {
+  DEFAULT_SEASON_PARAMS,
+  SUPPORTED_PAIRS,
+  type SeasonParams,
+} from '../lib/leagues';
 
 interface SeasonRow {
   id: string;
@@ -12,6 +17,37 @@ interface SeasonRow {
   ends_at: number;
   status: string;
   market_type: string;
+}
+
+/** Validate optional season params on official season creation; fall back to official defaults. */
+function officialParams(body: Record<string, unknown>): SeasonParams | { error: string } {
+  const pairsRaw = body.pairs;
+  let pairs: string[];
+  if (pairsRaw === undefined) {
+    pairs = [...DEFAULT_SEASON_PARAMS.pairs];
+  } else if (
+    Array.isArray(pairsRaw) &&
+    pairsRaw.length > 0 &&
+    pairsRaw.every((p) => typeof p === 'string' && (SUPPORTED_PAIRS as readonly string[]).includes(p))
+  ) {
+    pairs = [...new Set(pairsRaw as string[])];
+  } else {
+    return { error: `pairs must be a non-empty array drawn from ${SUPPORTED_PAIRS.join(', ')}` };
+  }
+  const num = (v: unknown, lo: number, hi: number, dflt: number) =>
+    typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : dflt;
+  const allowShort =
+    body.allow_short === undefined ? true : body.allow_short === true;
+  if (body.allow_short !== undefined && body.allow_short !== true && body.allow_short !== false) {
+    return { error: 'allow_short must be a boolean' };
+  }
+  return {
+    pairs,
+    season_days: DEFAULT_SEASON_PARAMS.season_days,
+    starting_capital: num(body.starting_capital, 1000, 100000, DEFAULT_SEASON_PARAMS.starting_capital),
+    max_leverage: num(body.max_leverage, 1, 3, DEFAULT_SEASON_PARAMS.max_leverage),
+    allow_short: allowShort,
+  };
 }
 
 // POST /api/v1/admin/seasons (admin auth, applied by the router)
@@ -26,15 +62,15 @@ export async function createSeason(
     return err('bad_request', 'Request body must be JSON', 400);
   }
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  const pair = typeof body.pair === 'string' ? body.pair : 'BTC/USD';
   const starts_at = body.starts_at as number;
   const ends_at = body.ends_at as number;
 
   if (name.length === 0 || name.length > 128) {
     return err('invalid_season', 'name must be 1-128 characters', 422);
   }
-  if (pair.length === 0) {
-    return err('invalid_season', 'pair is required', 422);
+  const params = officialParams(body);
+  if ('error' in params) {
+    return err('invalid_season', params.error, 422);
   }
   if (
     typeof starts_at !== 'number' ||
@@ -54,10 +90,10 @@ export async function createSeason(
 
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO seasons (id, name, pair, starts_at, ends_at, status, market_type, created_at)
-     VALUES (?, ?, ?, ?, ?, 'open', 'real', ?)`,
+    `INSERT INTO seasons (id, name, pair, starts_at, ends_at, status, market_type, created_at, params)
+     VALUES (?, ?, ?, ?, ?, 'open', 'real', ?, ?)`,
   )
-    .bind(id, name, pair, starts_at, ends_at, Date.now())
+    .bind(id, name, params.pairs[0], starts_at, ends_at, Date.now(), JSON.stringify(params))
     .run();
 
   return json(
@@ -65,18 +101,19 @@ export async function createSeason(
       season: {
         id,
         name,
-        pair,
+        pair: params.pairs[0],
         starts_at,
         ends_at,
         status: 'open',
         market_type: 'real',
+        params,
       },
     },
     201,
   );
 }
 
-async function settleSeason(env: Env, seasonId: string): Promise<void> {
+export async function settleSeason(env: Env, seasonId: string): Promise<void> {
   const entries = await q<{ id: string; starting_capital: number }>(
     env.DB,
     'SELECT id, starting_capital FROM season_entries WHERE season_id = ?',

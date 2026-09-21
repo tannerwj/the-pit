@@ -2,24 +2,30 @@ import type { Env } from '../lib/types';
 import { json, err } from '../lib/auth';
 import { q, q1 } from '../lib/db';
 
-// GET /api/v1/leaderboard?season_id=&pair= (public)
-export async function getLeaderboard(
-  req: Request,
+export interface LeaderboardEntry {
+  rank: number;
+  agent_name: string;
+  alpha_score: number | null;
+  total_return: number | null;
+  sharpe: number | null;
+  max_drawdown: number | null;
+  win_rate: number | null;
+  profit_factor: number | null;
+  trades: number;
+  equity: number;
+}
+
+/** Season leaderboard rows, or null when the season doesn't exist. Pair-agnostic: entries hold positions across pairs; equity is the single source of truth. */
+export async function leaderboardForSeason(
   env: Env,
-): Promise<Response> {
-  const params = new URL(req.url).searchParams;
-  const seasonId = params.get('season_id');
-  if (!seasonId) {
-    return err('season_id_required', 'season_id query param is required', 400);
-  }
+  seasonId: string,
+): Promise<LeaderboardEntry[] | null> {
   const season = await q1<{ id: string }>(
     env.DB,
     'SELECT id FROM seasons WHERE id = ?',
     seasonId,
   );
-  if (!season) {
-    return err('season_not_found', 'Season not found', 404);
-  }
+  if (!season) return null;
 
   const rows = await q<{
     agent_name: string;
@@ -47,7 +53,7 @@ export async function getLeaderboard(
     seasonId,
   );
 
-  const entries = rows.map((r, i) => ({
+  return rows.map((r, i) => ({
     rank: i + 1,
     agent_name: r.agent_name,
     alpha_score: r.alpha_score,
@@ -59,6 +65,21 @@ export async function getLeaderboard(
     trades: r.trades,
     equity: r.equity ?? r.cash,
   }));
+}
 
+// GET /api/v1/leaderboard?season_id=&pair= (public)
+export async function getLeaderboard(
+  req: Request,
+  env: Env,
+): Promise<Response> {
+  const params = new URL(req.url).searchParams;
+  const seasonId = params.get('season_id');
+  if (!seasonId) {
+    return err('season_id_required', 'season_id query param is required', 400);
+  }
+  const entries = await leaderboardForSeason(env, seasonId);
+  if (!entries) {
+    return err('season_not_found', 'Season not found', 404);
+  }
   return json({ season_id: seasonId, entries });
 }

@@ -7,6 +7,7 @@ import {
   applyFill,
   checkLeverage,
 } from '../lib/engine';
+import { SUPPORTED_PAIRS, parseSeasonParams } from '../lib/leagues';
 
 const QUOTE_TTL_MS = 120_000; // 120s staleness cutoff for inline market fills
 
@@ -14,6 +15,7 @@ interface SeasonRow {
   id: string;
   pair: string;
   status: string;
+  params: string | null;
 }
 interface EntryRow {
   id: string;
@@ -154,20 +156,25 @@ export async function placeOrder(
       422,
     );
   }
-  // Season lookup (needed for pair + live checks below)
+  // Season lookup (needed for params + live checks below)
   const season = await q1<SeasonRow>(
     env.DB,
-    'SELECT id, pair, status FROM seasons WHERE id = ?',
+    'SELECT id, pair, status, params FROM seasons WHERE id = ?',
     season_id,
   );
   if (!season) {
     return err('season_not_found', 'Season not found', 404);
   }
-  // 2. pair must equal the season's pair
-  if (pair !== season.pair) {
+  const sparams = parseSeasonParams(season.params);
+  // 2. pair must be one of the season's tradable pairs
+  if (
+    typeof pair !== 'string' ||
+    !(SUPPORTED_PAIRS as readonly string[]).includes(pair) ||
+    !sparams.pairs.includes(pair)
+  ) {
     return err(
       'bad_pair',
-      `Order pair must match the season pair (${season.pair})`,
+      `Order pair must be one of the season's pairs: ${sparams.pairs.join(', ')}`,
       422,
     );
   }
@@ -212,10 +219,29 @@ export async function placeOrder(
   if (season.status !== 'live') {
     return err('season_not_live', 'Season is not live for trading', 409);
   }
-  // 6. leverage check at fill price
+  // 6. position load + short rule (no quote needed; pure math)
+  const pos = await q1<PosRow>(
+    env.DB,
+    'SELECT qty, avg_price FROM positions WHERE entry_id = ? AND pair = ?',
+    entry.id,
+    pair,
+  );
+  const posQty = pos?.qty ?? 0;
+  const posAvg = pos?.avg_price ?? 0;
+  if (!sparams.allow_short && side === 'sell') {
+    const after = applyFill({ qty: posQty, avgPrice: posAvg }, side, qty, 1);
+    if (after.qty < 0) {
+      return err(
+        'shorts_disallowed',
+        'Short selling is disabled in this season',
+        422,
+      );
+    }
+  }
+  // 7. leverage check at fill price (season's max_leverage)
   let fillPrice: number;
   if (type === 'market') {
-    const quote = await getMarketQuote(env, season.pair);
+    const quote = await getMarketQuote(env, pair);
     if (!quote) {
       return err('no_market_data', 'No fresh market data available', 503);
     }
@@ -223,18 +249,13 @@ export async function placeOrder(
   } else {
     fillPrice = limitFillPrice(limit_price as number);
   }
-  const pos = await q1<PosRow>(
-    env.DB,
-    'SELECT qty, avg_price FROM positions WHERE entry_id = ? AND pair = ?',
-    entry.id,
-    season.pair,
-  );
   const leverage = checkLeverage({
     cash: entry.cash,
-    posQty: pos?.qty ?? 0,
+    posQty,
     side,
     orderQty: qty,
     fillPrice,
+    maxLeverage: sparams.max_leverage,
   });
   if (!leverage.ok) {
     return err(
@@ -244,7 +265,7 @@ export async function placeOrder(
     );
   }
 
-  // 7. persist the order; market orders fill immediately, limit orders rest open
+  // 8. persist the order; market orders fill immediately, limit orders rest open
   const id = crypto.randomUUID();
   const now = Date.now();
   const trimmedRationale = rationale.trim();
@@ -256,7 +277,7 @@ export async function placeOrder(
     .bind(
       id,
       entry.id,
-      season.pair,
+      pair,
       side,
       qty,
       type,
@@ -272,7 +293,7 @@ export async function placeOrder(
   let realizedPnl = 0;
   if (type === 'market') {
     const fill = applyFill(
-      { qty: pos?.qty ?? 0, avgPrice: pos?.avg_price ?? 0 },
+      { qty: posQty, avgPrice: posAvg },
       side,
       qty,
       fillPrice,
@@ -289,7 +310,7 @@ export async function placeOrder(
            qty = excluded.qty,
            avg_price = excluded.avg_price,
            updated_at = excluded.updated_at`,
-      ).bind(entry.id, season.pair, fill.qty, fill.avgPrice, filledAt),
+      ).bind(entry.id, pair, fill.qty, fill.avgPrice, filledAt),
       env.DB.prepare('UPDATE season_entries SET cash = cash + ? WHERE id = ?')
         .bind(fill.cashDelta, entry.id),
       env.DB.prepare(
@@ -304,7 +325,7 @@ export async function placeOrder(
       order: orderJson({
         id,
         entry_id: entry.id,
-        pair: season.pair,
+        pair,
         side,
         qty,
         type,
