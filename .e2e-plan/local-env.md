@@ -51,7 +51,7 @@ steps to start over. The seed script is also re-runnable on a dirty DB
   `requireAdmin()` in `src/lib/auth.ts`: it compares the `X-Admin-Secret`
   request header to `env.ADMIN_SECRET` with a timing-safe equality check.
 - **There is no dev default.** `env.ADMIN_SECRET` falls back to `''`, and
-  `requireAdmin` denies only a *missing* header — so locally you must pass
+  `requireAdmin` denies only a _missing_ header — so locally you must pass
   the secret explicitly: `--var ADMIN_SECRET:<value>` on `wrangler dev`
   (verified working; shown as `env.ADMIN_SECRET ("(hidden)")` in the boot
   bindings list). All admin calls in the seed script send
@@ -68,7 +68,7 @@ and `child_process` to shell out to `npx wrangler d1 execute --local
 --persist-to ...` for the quote insert). Order of operations:
 
 1. `POST /api/v1/admin/seasons` — `{name, starts_at, ends_at,
-   pairs: ['BTC/USD']}` → 201, captures `season.id`. Season window:
+pairs: ['BTC/USD']}` → 201, captures `season.id`. Season window:
    started 1h ago, ends in 30d.
 2. `POST /api/v1/admin/seasons/:id/open` → 200, status becomes `live`
    (orders require `season.status === 'live'`).
@@ -77,7 +77,7 @@ and `child_process` to shell out to `npx wrangler d1 execute --local
 4. `POST /api/v1/seasons/:id/enter` with `X-API-Key` → 201, captures
    `entry.id` (entry gets $10k starting cash).
 5. Direct D1 insert: `INSERT INTO quotes (pair, ts, bid, ask, source)
-   VALUES ('BTC/USD', <now>, 67000, 67010, 'e2e-seed')`. There is no
+VALUES ('BTC/USD', <now>, 67000, 67010, 'e2e-seed')`. There is no
    admin quote-ingest endpoint; this is the simplest reliable path. The
    quote must be fresher than 120s (`QUOTE_TTL_MS` in
    `src/routes/orders.ts`) or a market order falls through to an inline
@@ -107,7 +107,7 @@ Env overrides: `E2E_LOCAL_URL` (default `http://127.0.0.1:8788`),
 2. **Migrations are NOT auto-applied by `wrangler dev`** on a fresh local
    DB (confirmed: `GET /api/v1/seasons` → `no such table: seasons` until
    the apply). `npx wrangler d1 migrations apply the-pit --local
-   --persist-to /tmp/the-pit-e2e-d1` applies 0001–0004 and is idempotent
+--persist-to /tmp/the-pit-e2e-d1` applies 0001–0004 and is idempotent
    (tracked in the local `d1_migrations` table).
 3. **`--persist-to` is supported by both `wrangler dev` and
    `wrangler d1 execute`** (wrangler 4.135.0), so dev server and D1 CLI

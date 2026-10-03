@@ -1,5 +1,5 @@
 // The Pit — spectator UI + new read-endpoint tests (mock D1, no network).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 import {
   homePage,
   leaderboardPage,
@@ -8,10 +8,10 @@ import {
   leaguePage,
   smaSeries,
   formatCountdown,
-} from '../src/pages';
-import { default as worker } from '../src/index';
-import { getEquityCurve, getRecentTrades } from '../src/routes/spectator';
-import type { Env } from '../src/lib/types';
+} from "../src/pages";
+import { default as worker } from "../src/index";
+import { getEquityCurve, getRecentTrades } from "../src/routes/spectator";
+import type { Env } from "../src/lib/types";
 
 interface Handler {
   match: (sql: string) => boolean;
@@ -37,22 +37,22 @@ function mockDb(handlers: Handler[]): Env {
       };
     },
   };
-  return { DB: db, ADMIN_SECRET: 'x' } as unknown as Env;
+  return { DB: db, ADMIN_SECRET: "x" } as unknown as Env;
 }
 
 const LIVE_SEASON = {
-  id: 'season-1',
-  name: 'Season One',
-  pair: 'BTC/USD',
+  id: "season-1",
+  name: "Season One",
+  pair: "BTC/USD",
   starts_at: 1,
   ends_at: 2,
-  status: 'live',
+  status: "live",
 };
 
 const LB_ROWS = [
   {
-    entry_id: 'abcd1111-uuid',
-    agent_name: 'Speedy',
+    entry_id: "abcd1111-uuid",
+    agent_name: "Speedy",
     alpha_score: 74.45,
     total_return: 0.3,
     sharpe: 1.8,
@@ -64,8 +64,8 @@ const LB_ROWS = [
     rank: 1,
   },
   {
-    entry_id: 'efgh2222-uuid',
-    agent_name: 'Yolo',
+    entry_id: "efgh2222-uuid",
+    agent_name: "Yolo",
     alpha_score: 71.43,
     total_return: 2.0,
     sharpe: 0.9,
@@ -80,7 +80,7 @@ const LB_ROWS = [
 
 function pageHandlers(extra: Handler[] = []): Handler[] {
   return [
-    { match: (s) => s.includes('LEFT JOIN scores'), all: LB_ROWS },
+    { match: (s) => s.includes("LEFT JOIN scores"), all: LB_ROWS },
     {
       match: (s) => s.includes("FROM seasons WHERE status = 'live'"),
       first: LIVE_SEASON,
@@ -90,32 +90,32 @@ function pageHandlers(extra: Handler[] = []): Handler[] {
       first: null,
     },
     {
-      match: (s) => s.includes('FROM seasons WHERE id = ?'),
+      match: (s) => s.includes("FROM seasons WHERE id = ?"),
       first: LIVE_SEASON,
     },
     {
-      match: (s) => s.includes('FROM seasons ORDER BY'),
+      match: (s) => s.includes("FROM seasons ORDER BY"),
       all: [LIVE_SEASON],
     },
     {
-      match: (s) => s.includes('ORDER BY ts DESC LIMIT 1'),
+      match: (s) => s.includes("ORDER BY ts DESC LIMIT 1"),
       first: { bid: 81290, ask: 81292, ts: 1700000000000 },
     },
     {
-      match: (s) => s.includes('MAX((bid+ask)/2.0)'),
+      match: (s) => s.includes("MAX((bid+ask)/2.0)"),
       first: { hi: 83000, lo: 79000, n: 1440 },
     },
     {
-      match: (s) => s.includes('ORDER BY ts ASC LIMIT 1'),
+      match: (s) => s.includes("ORDER BY ts ASC LIMIT 1"),
       first: { m: 80000 },
     },
     {
       match: (s) => s.includes("FROM season_entries WHERE season_id = ? AND status = 'active'"),
       first: { n: 2 },
     },
-    { match: (s) => s.includes('o.filled_at >='), first: { n: 42 } },
+    { match: (s) => s.includes("o.filled_at >="), first: { n: 42 } },
     {
-      match: (s) => s.includes('COUNT(CASE WHEN p.qty'),
+      match: (s) => s.includes("COUNT(CASE WHEN p.qty"),
       first: { longs: 3, shorts: 1, net_qty: 0.5 },
     },
     ...extra,
@@ -124,84 +124,80 @@ function pageHandlers(extra: Handler[] = []): Handler[] {
 
 async function text(res: Response): Promise<string> {
   expect(res.status).toBe(200);
-  expect(res.headers.get('Content-Type')).toContain('text/html');
+  expect(res.headers.get("Content-Type")).toContain("text/html");
   return res.text();
 }
 
-describe('spectator pages', () => {
-  it('home returns 200 with dark exchange markup', async () => {
+describe("spectator pages", () => {
+  it("home returns 200 with dark exchange markup", async () => {
     const html = await text(await homePage(mockDb(pageHandlers())));
-    expect(html).toContain('THE&nbsp;PIT');
-    expect(html).toContain('#0b0e11');
+    expect(html).toContain("THE&nbsp;PIT");
+    expect(html).toContain("#0b0e11");
     expect(html).toContain('id="heroPrice"');
     expect(html).toContain('id="markets"');
     expect(html).toContain('id="ntPrice"');
-    expect(html).toContain('pitPollQuote');
-    expect(html).toContain('Agent #abcd'); // anonymized top-5
-    expect(html).toContain('$81,291.00');
+    expect(html).toContain("pitPollQuote");
+    expect(html).toContain("Agent #abcd"); // anonymized top-5
+    expect(html).toContain("$81,291.00");
   });
 
-  it('leaderboard returns 200 with sortable table + sparklines', async () => {
-    const html = await text(
-      await leaderboardPage(mockDb(pageHandlers()), 'season-1'),
-    );
+  it("leaderboard returns 200 with sortable table + sparklines", async () => {
+    const html = await text(await leaderboardPage(mockDb(pageHandlers()), "season-1"));
     expect(html).toContain('data-season="season-1"');
     expect(html).toContain('th class="sortable"');
     expect(html).toContain('canvas class="spark"');
     expect(html).toContain('data-entry="abcd1111-uuid"');
-    expect(html).toContain('Alpha Score');
+    expect(html).toContain("Alpha Score");
     expect(html).toContain('id="seasonSel"');
     // agent real names must not leak; anonymized labels shown
-    expect(html).not.toContain('>Speedy<');
-    expect(html).toContain('Agent #abcd');
+    expect(html).not.toContain(">Speedy<");
+    expect(html).toContain("Agent #abcd");
   });
 
-  it('leaderboard 404s on unknown season', async () => {
+  it("leaderboard 404s on unknown season", async () => {
     const res = await leaderboardPage(
       mockDb([{ match: () => true, first: null, all: [] }]),
-      'nope',
+      "nope",
     );
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain('Season not found');
+    expect(await res.text()).toContain("Season not found");
   });
 
-  it('pair page returns 200 with chart, quote card, tape, book', async () => {
-    const html = await text(await pairPage(mockDb(pageHandlers()), 'BTC-USD'));
+  it("pair page returns 200 with chart, quote card, tape, book", async () => {
+    const html = await text(await pairPage(mockDb(pageHandlers()), "BTC-USD"));
     expect(html).toContain('id="candles"');
     expect(html).toContain('data-pair="BTC-USD"');
     expect(html).toContain('id="trades"');
-    expect(html).toContain('Book pressure');
+    expect(html).toContain("Book pressure");
     expect(html).toContain('id="qBid"');
     expect(html).toContain('id="qAsk"');
-    expect(html).toContain('tfbtns');
-    expect(html).toContain('/api/v1/market/');
-    expect(html).toContain('/trades?limit=20');
+    expect(html).toContain("tfbtns");
+    expect(html).toContain("/api/v1/market/");
+    expect(html).toContain("/trades?limit=20");
   });
 });
 
-describe('spectator read endpoints', () => {
-  it('getEquityCurve downsamples and 404s on unknown entry', async () => {
+describe("spectator read endpoints", () => {
+  it("getEquityCurve downsamples and 404s on unknown entry", async () => {
     const pts = Array.from({ length: 10 }, (_, i) => ({
       t: 1000 + i,
       equity: 10000 + i * 10,
     }));
     const env = mockDb([
       {
-        match: (s) => s.includes('FROM season_entries WHERE id = ?'),
-        first: { id: 'e1' },
+        match: (s) => s.includes("FROM season_entries WHERE id = ?"),
+        first: { id: "e1" },
       },
-      { match: (s) => s.includes('FROM equity_snapshots'), all: pts },
+      { match: (s) => s.includes("FROM equity_snapshots"), all: pts },
     ]);
-    const req = new Request(
-      'https://x/api/v1/entries/e1/equity?points=4',
-    );
-    const res = await getEquityCurve(req, env, 'e1');
+    const req = new Request("https://x/api/v1/entries/e1/equity?points=4");
+    const res = await getEquityCurve(req, env, "e1");
     expect(res.status).toBe(200);
     const j = (await res.json()) as {
       entry_id: string;
       points: { t: number; equity: number }[];
     };
-    expect(j.entry_id).toBe('e1');
+    expect(j.entry_id).toBe("e1");
     expect(j.points.length).toBe(5); // 4 sampled + last
     expect(j.points[0]).toEqual({ t: 1000, equity: 10000 });
     expect(j.points[j.points.length - 1]).toEqual({
@@ -210,14 +206,14 @@ describe('spectator read endpoints', () => {
     });
 
     const env404 = mockDb([]);
-    const res404 = await getEquityCurve(req, env404, 'missing');
+    const res404 = await getEquityCurve(req, env404, "missing");
     expect(res404.status).toBe(404);
   });
 
-  it('getRecentTrades anonymizes and respects limit', async () => {
+  it("getRecentTrades anonymizes and respects limit", async () => {
     const rows = Array.from({ length: 30 }, (_, i) => ({
       entry_id: `abcdef${i}-uuid`,
-      side: i % 2 ? 'sell' : 'buy',
+      side: i % 2 ? "sell" : "buy",
       qty: 0.01,
       fill_price: 81000 + i,
       filled_at: 1700000000000 + i,
@@ -237,25 +233,23 @@ describe('spectator read endpoints', () => {
         };
       },
     };
-    const env = { DB: db, ADMIN_SECRET: 'x' } as unknown as Env;
-    const req = new Request(
-      'https://x/api/v1/market/BTC-USD/trades?limit=5',
-    );
-    const res = await getRecentTrades(req, env, 'BTC-USD');
+    const env = { DB: db, ADMIN_SECRET: "x" } as unknown as Env;
+    const req = new Request("https://x/api/v1/market/BTC-USD/trades?limit=5");
+    const res = await getRecentTrades(req, env, "BTC-USD");
     expect(res.status).toBe(200);
     const j = (await res.json()) as {
       pair: string;
       trades: { agent: string; side: string }[];
     };
-    expect(j.pair).toBe('BTC/USD');
+    expect(j.pair).toBe("BTC/USD");
     expect(j.trades.length).toBe(5);
-    expect(j.trades[0].agent).toBe('Agent #abcd');
-    expect(j.trades[0].agent).not.toContain('abcdef0-uuid');
+    expect(j.trades[0].agent).toBe("Agent #abcd");
+    expect(j.trades[0].agent).not.toContain("abcdef0-uuid");
   });
 });
 
-describe('wave-2 dashboard polish', () => {
-  it('smaSeries computes moving averages with null padding', () => {
+describe("wave-2 dashboard polish", () => {
+  it("smaSeries computes moving averages with null padding", () => {
     expect(smaSeries([1, 2, 3, 4], 2)).toEqual([null, 1.5, 2.5, 3.5]);
     expect(smaSeries([1, 2], 5)).toEqual([null, null]);
     expect(smaSeries([], 7)).toEqual([]);
@@ -263,61 +257,57 @@ describe('wave-2 dashboard polish', () => {
     expect(smaSeries([2, 4, 6], 3)[2]).toBeCloseTo(4);
   });
 
-  it('formatCountdown renders d/hh/mm/ss and ended', () => {
-    expect(formatCountdown(90061000)).toBe('1d 01:01:01');
-    expect(formatCountdown(3661000)).toBe('01:01:01');
-    expect(formatCountdown(59000)).toBe('00:00:59');
-    expect(formatCountdown(0)).toBe('ended');
-    expect(formatCountdown(-5)).toBe('ended');
+  it("formatCountdown renders d/hh/mm/ss and ended", () => {
+    expect(formatCountdown(90061000)).toBe("1d 01:01:01");
+    expect(formatCountdown(3661000)).toBe("01:01:01");
+    expect(formatCountdown(59000)).toBe("00:00:59");
+    expect(formatCountdown(0)).toBe("ended");
+    expect(formatCountdown(-5)).toBe("ended");
   });
 
-  it('all pages carry favicon, meta description, feed status, ticker tape, season banner', async () => {
+  it("all pages carry favicon, meta description, feed status, ticker tape, season banner", async () => {
     const pages = [
       await homePage(mockDb(pageHandlers())),
-      await leaderboardPage(mockDb(pageHandlers()), 'season-1'),
-      await pairPage(mockDb(pageHandlers()), 'BTC-USD'),
+      await leaderboardPage(mockDb(pageHandlers()), "season-1"),
+      await pairPage(mockDb(pageHandlers()), "BTC-USD"),
     ];
     for (const res of pages) {
       const html = await text(res);
       expect(html).toContain('rel="icon"');
-      expect(html).toContain('data:image/svg+xml');
+      expect(html).toContain("data:image/svg+xml");
       expect(html).toContain('name="description"');
       expect(html).toContain('id="feedStat"');
       expect(html).toContain('id="tickerTrack"');
       expect(html).toContain('id="seasonBanner"');
-      expect(html).toContain('js-countdown');
-      expect(html).toContain('github.com/tannerwj/the-pit');
+      expect(html).toContain("js-countdown");
+      expect(html).toContain("github.com/tannerwj/the-pit");
       expect(html).toContain('id="footFeed"');
     }
   });
 
-  it('no-live-season banner shows the opens-soon variant', async () => {
-    const handlers = pageHandlers().filter(
-      (h) => !h.match("FROM seasons WHERE status = 'live'"),
-    );
+  it("no-live-season banner shows the opens-soon variant", async () => {
+    const handlers = pageHandlers().filter((h) => !h.match("FROM seasons WHERE status = 'live'"));
     handlers.unshift({
       match: (s) => s.includes("FROM seasons WHERE status = 'live'"),
       first: null,
     });
     const html = await text(await homePage(mockDb(handlers)));
-    expect(html).toContain('No live season');
-    expect(html).toContain('opens soon');
+    expect(html).toContain("No live season");
+    expect(html).toContain("opens soon");
   });
 
   const OPEN_SEASON = {
-    id: 'season-open',
-    name: 'Season 1',
-    pair: 'BTC/USD',
+    id: "season-open",
+    name: "Season 1",
+    pair: "BTC/USD",
     starts_at: 1790044104442,
     ends_at: 1791253704442,
-    status: 'open',
+    status: "open",
   };
 
   function openSeasonHandlers(): Handler[] {
     // No live season, but an official season with registration open.
-    const handlers = pageHandlers().filter(
-      (h) => !h.match("FROM seasons WHERE status = 'live'"),
-    );
+    const handlers = pageHandlers().filter((h) => !h.match("FROM seasons WHERE status = 'live'"));
     handlers.unshift({
       match: (s) => s.includes("FROM seasons WHERE status = 'live'"),
       first: null,
@@ -329,17 +319,15 @@ describe('wave-2 dashboard polish', () => {
     return handlers;
   }
 
-  it('open-registration banner shows the registration-open countdown', async () => {
+  it("open-registration banner shows the registration-open countdown", async () => {
     const html = await text(await homePage(mockDb(openSeasonHandlers())));
-    expect(html).toContain('registration open');
-    expect(html).toContain('trading starts in');
-    expect(html).toContain(
-      `data-ends="${OPEN_SEASON.starts_at}"`,
-    );
-    expect(html).not.toContain('No live season');
+    expect(html).toContain("registration open");
+    expect(html).toContain("trading starts in");
+    expect(html).toContain(`data-ends="${OPEN_SEASON.starts_at}"`);
+    expect(html).not.toContain("No live season");
   });
 
-  it('live season takes precedence over an open season in the banner', async () => {
+  it("live season takes precedence over an open season in the banner", async () => {
     // pageHandlers() already returns a live season; add an open one too.
     const handlers = pageHandlers();
     handlers.unshift({
@@ -347,176 +335,160 @@ describe('wave-2 dashboard polish', () => {
       first: OPEN_SEASON,
     });
     const html = await text(await homePage(mockDb(handlers)));
-    expect(html).toContain('trading window ends in');
-    expect(html).not.toContain('registration open');
+    expect(html).toContain("trading window ends in");
+    expect(html).not.toContain("registration open");
   });
 
-  it('leaderboard defaults to the open season when nothing is live', async () => {
-    const html = await text(
-      await leaderboardPage(mockDb(openSeasonHandlers()), null),
-    );
-    expect(html).toContain('Season 1');
-    expect(html).not.toContain('No seasons yet.');
+  it("leaderboard defaults to the open season when nothing is live", async () => {
+    const html = await text(await leaderboardPage(mockDb(openSeasonHandlers()), null));
+    expect(html).toContain("Season 1");
+    expect(html).not.toContain("No seasons yet.");
   });
 
-  it('leaderboard has rank badges and expandable alpha breakdowns', async () => {
-    const html = await text(
-      await leaderboardPage(mockDb(pageHandlers()), 'season-1'),
-    );
+  it("leaderboard has rank badges and expandable alpha breakdowns", async () => {
+    const html = await text(await leaderboardPage(mockDb(pageHandlers()), "season-1"));
     expect(html).toContain('class="rbadge"');
     expect(html).toContain('class="xmain r1"');
     expect(html).toContain('class="xdetail"');
-    expect(html).toContain('Return · 40%');
-    expect(html).toContain('Risk · 40%');
-    expect(html).toContain('Consistency · 20%');
-    expect(html).toContain('PF 1.50');
+    expect(html).toContain("Return · 40%");
+    expect(html).toContain("Risk · 40%");
+    expect(html).toContain("Consistency · 20%");
+    expect(html).toContain("PF 1.50");
   });
 
-  it('pair page has SMA chips, day-range slider, indicative depth, est volume', async () => {
-    const html = await text(await pairPage(mockDb(pageHandlers()), 'BTC-USD'));
+  it("pair page has SMA chips, day-range slider, indicative depth, est volume", async () => {
+    const html = await text(await pairPage(mockDb(pageHandlers()), "BTC-USD"));
     expect(html).toContain('id="smachips"');
-    expect(html).toContain('SMA 7');
-    expect(html).toContain('SMA 25');
-    expect(html).toContain('smaSeries');
+    expect(html).toContain("SMA 7");
+    expect(html).toContain("SMA 25");
+    expect(html).toContain("smaSeries");
     expect(html).toContain('id="dayRange"');
     expect(html).toContain('id="drMarker"');
     expect(html).toContain('id="depthLadder"');
-    expect(html).toContain('Indicative depth');
-    expect(html).toContain('Est. vol · 24h');
+    expect(html).toContain("Indicative depth");
+    expect(html).toContain("Est. vol · 24h");
     expect(html).toContain('class="skel"');
-    expect(html).toContain('formatCountdown');
+    expect(html).toContain("formatCountdown");
   });
 });
 
-describe('wave-3 fantasy league pages', () => {
+describe("wave-3 fantasy league pages", () => {
   const LEAGUE = {
-    id: 'league-1',
-    slug: 'degen-arena',
-    name: 'Degen Arena',
-    description: 'High-octane paper trading',
+    id: "league-1",
+    slug: "degen-arena",
+    name: "Degen Arena",
+    description: "High-octane paper trading",
     pairs: '["BTC/USD","ETH/USD"]',
     season_days: 7,
     starting_capital: 5000,
     max_leverage: 2,
     allow_short: 1,
-    visibility: 'public',
+    visibility: "public",
     max_agents: 16,
     created_at: 1,
   };
   const LSEASON = {
-    id: 'lseason-1',
-    name: 'Degen Arena — Season 1',
-    pair: 'BTC/USD',
+    id: "lseason-1",
+    name: "Degen Arena — Season 1",
+    pair: "BTC/USD",
     starts_at: Date.now() - 1000,
     ends_at: Date.now() + 6 * 86400000,
-    status: 'live',
+    status: "live",
   };
 
   function leagueHandlers(league: unknown, seasons: unknown[]): Handler[] {
     return [
       {
-        match: (s) =>
-          s.includes('FROM leagues WHERE visibility = \'public\''),
+        match: (s) => s.includes("FROM leagues WHERE visibility = 'public'"),
         all: league ? [league] : [],
       },
       {
-        match: (s) => s.includes('FROM leagues WHERE slug = ?'),
-        firstFor: (p) =>
-          league && (league as { slug: string }).slug === p[0] ? league : null,
+        match: (s) => s.includes("FROM leagues WHERE slug = ?"),
+        firstFor: (p) => (league && (league as { slug: string }).slug === p[0] ? league : null),
       },
       {
-        match: (s) => s.includes('SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?'),
+        match: (s) => s.includes("SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?"),
         first: { n: seasons.length },
       },
       {
-        match: (s) => s.includes('SELECT status FROM seasons WHERE league_id = ?'),
-        first: { status: 'live' },
+        match: (s) => s.includes("SELECT status FROM seasons WHERE league_id = ?"),
+        first: { status: "live" },
       },
       {
-        match: (s) => s.includes('COUNT(DISTINCT se.agent_id)'),
+        match: (s) => s.includes("COUNT(DISTINCT se.agent_id)"),
         first: { n: 3 },
       },
       {
-        match: (s) =>
-          s.includes('FROM seasons WHERE league_id = ? ORDER BY starts_at DESC'),
+        match: (s) => s.includes("FROM seasons WHERE league_id = ? ORDER BY starts_at DESC"),
         all: seasons,
       },
-      { match: (s) => s.includes('LEFT JOIN scores'), all: LB_ROWS },
+      { match: (s) => s.includes("LEFT JOIN scores"), all: LB_ROWS },
     ];
   }
 
-  it('leaguesPage lists public leagues with param chips and counts', async () => {
-    const html = await text(
-      await leaguesPage(mockDb(leagueHandlers(LEAGUE, [LSEASON]))),
-    );
-    expect(html).toContain('Fantasy Leagues');
-    expect(html).toContain('Degen Arena');
-    expect(html).toContain('/league/degen-arena');
-    expect(html).toContain('BTC/USD, ETH/USD');
-    expect(html).toContain('7d seasons');
-    expect(html).toContain('$5,000.00 capital');
-    expect(html).toContain('2× leverage');
-    expect(html).toContain('shorts: yes');
-    expect(html).toContain('max 16 agents');
+  it("leaguesPage lists public leagues with param chips and counts", async () => {
+    const html = await text(await leaguesPage(mockDb(leagueHandlers(LEAGUE, [LSEASON]))));
+    expect(html).toContain("Fantasy Leagues");
+    expect(html).toContain("Degen Arena");
+    expect(html).toContain("/league/degen-arena");
+    expect(html).toContain("BTC/USD, ETH/USD");
+    expect(html).toContain("7d seasons");
+    expect(html).toContain("$5,000.00 capital");
+    expect(html).toContain("2× leverage");
+    expect(html).toContain("shorts: yes");
+    expect(html).toContain("max 16 agents");
     expect(html).toContain('id="feedStat"');
     expect(html).toContain('id="tickerTrack"');
   });
 
-  it('leaguesPage shows the empty state when no leagues exist', async () => {
+  it("leaguesPage shows the empty state when no leagues exist", async () => {
     const html = await text(await leaguesPage(mockDb(leagueHandlers(null, []))));
-    expect(html).toContain('No public leagues yet');
+    expect(html).toContain("No public leagues yet");
   });
 
-  it('leaguePage renders rules, seasons with countdowns, leaderboard picker, join steps', async () => {
+  it("leaguePage renders rules, seasons with countdowns, leaderboard picker, join steps", async () => {
     const html = await text(
-      await leaguePage(mockDb(leagueHandlers(LEAGUE, [LSEASON])), 'degen-arena'),
+      await leaguePage(mockDb(leagueHandlers(LEAGUE, [LSEASON])), "degen-arena"),
     );
-    expect(html).toContain('Degen Arena');
-    expect(html).toContain('High-octane paper trading');
-    expect(html).toContain('League rules');
-    expect(html).toContain('Degen Arena — Season 1');
-    expect(html).toContain('js-countdown');
+    expect(html).toContain("Degen Arena");
+    expect(html).toContain("High-octane paper trading");
+    expect(html).toContain("League rules");
+    expect(html).toContain("Degen Arena — Season 1");
+    expect(html).toContain("js-countdown");
     expect(html).toContain('id="leagueSeasonSel"');
-    expect(html).toContain('How agents join');
-    expect(html).toContain('POST /api/v1/agents/register');
-    expect(html).toContain('invite_code');
-    expect(html).toContain('/api/v1/leaderboard?season_id=');
+    expect(html).toContain("How agents join");
+    expect(html).toContain("POST /api/v1/agents/register");
+    expect(html).toContain("invite_code");
+    expect(html).toContain("/api/v1/leaderboard?season_id=");
     // anonymized leaderboard, no real names
-    expect(html).toContain('Agent #abcd');
-    expect(html).not.toContain('>Speedy<');
+    expect(html).toContain("Agent #abcd");
+    expect(html).not.toContain(">Speedy<");
   });
 
-  it('leaguePage 404s on unknown slug', async () => {
-    const res = await leaguePage(mockDb(leagueHandlers(null, [])), 'nope');
+  it("leaguePage 404s on unknown slug", async () => {
+    const res = await leaguePage(mockDb(leagueHandlers(null, [])), "nope");
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain('League not found');
+    expect(await res.text()).toContain("League not found");
   });
 
-  it('leaguePage 404s on private leagues (matches API)', async () => {
-    const res = await leaguePage(
-      mockDb(leagueHandlers(null, [])),
-      'secret-club',
-    );
-    expect(await res.text()).toContain('League not found');
+  it("leaguePage 404s on private leagues (matches API)", async () => {
+    const res = await leaguePage(mockDb(leagueHandlers(null, [])), "secret-club");
+    expect(await res.text()).toContain("League not found");
   });
 
-  it('worker routes wire /leagues and /league/:slug', async () => {
+  it("worker routes wire /leagues and /league/:slug", async () => {
     const env = mockDb(leagueHandlers(LEAGUE, [LSEASON]));
     const ctx = {} as never;
-    const r1 = await worker.fetch(new Request('https://x/leagues'), env, ctx);
+    const r1 = await worker.fetch(new Request("https://x/leagues"), env, ctx);
     expect(r1.status).toBe(200);
-    expect(await r1.text()).toContain('Fantasy Leagues');
+    expect(await r1.text()).toContain("Fantasy Leagues");
 
-    const r2 = await worker.fetch(
-      new Request('https://x/league/degen-arena'),
-      env,
-      ctx,
-    );
+    const r2 = await worker.fetch(new Request("https://x/league/degen-arena"), env, ctx);
     expect(r2.status).toBe(200);
-    expect(await r2.text()).toContain('Degen Arena');
+    expect(await r2.text()).toContain("Degen Arena");
 
-    const r3 = await worker.fetch(new Request('https://x/league/nope'), env, ctx);
+    const r3 = await worker.fetch(new Request("https://x/league/nope"), env, ctx);
     expect(r3.status).toBe(200);
-    expect(await r3.text()).toContain('League not found');
+    expect(await r3.text()).toContain("League not found");
   });
 });

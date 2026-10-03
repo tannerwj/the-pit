@@ -10,12 +10,12 @@
 // continuous timeline: nearest-quote-at-or-before queries (candles endpoint,
 // what-if replay, backtest) just work.
 
-import type { Env } from './types';
-import { q } from './db';
-import { SUPPORTED_PAIRS } from './leagues';
+import type { Env } from "./types";
+import { q } from "./db";
+import { SUPPORTED_PAIRS } from "./leagues";
 
-export const BACKFILL_SOURCE = 'coinbase-backfill';
-export const LIVE_SOURCE = 'coinbase';
+export const BACKFILL_SOURCE = "coinbase-backfill";
+export const LIVE_SOURCE = "coinbase";
 /** Coinbase serves at most 300 candles per /candles request. */
 export const COINBASE_MAX_CANDLES = 300;
 /** Backfill granularity: hourly. */
@@ -38,21 +38,17 @@ export const MAX_MARKET_POINTS = 600;
 
 /** Normalize "BTC-USD" / "btc/usd" / "BTC/USD" to DB form, or null. */
 export function normalizeDbPair(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const db = raw.replace(/-/g, '/').toUpperCase();
+  if (typeof raw !== "string") return null;
+  const db = raw.replace(/-/g, "/").toUpperCase();
   return (SUPPORTED_PAIRS as readonly string[]).includes(db) ? db : null;
 }
 
 /** DB pair "BTC/USD" -> Coinbase product id "BTC-USD". */
 export function coinbaseProductId(dbPair: string): string {
-  return dbPair.replace('/', '-');
+  return dbPair.replace("/", "-");
 }
 
-export function candlesUrl(
-  dbPair: string,
-  startMs: number,
-  endMs: number,
-): string {
+export function candlesUrl(dbPair: string, startMs: number, endMs: number): string {
   const params = new URLSearchParams({
     start: new Date(startMs).toISOString(),
     end: new Date(endMs).toISOString(),
@@ -73,10 +69,10 @@ export function parseCandles(raw: unknown): HistoryQuote[] {
     if (!Array.isArray(row) || row.length < 6) continue;
     const [time, , , , close] = row as unknown[];
     if (
-      typeof time !== 'number' ||
+      typeof time !== "number" ||
       !Number.isFinite(time) ||
       time <= 0 ||
-      typeof close !== 'number' ||
+      typeof close !== "number" ||
       !Number.isFinite(close) ||
       close <= 0
     ) {
@@ -127,7 +123,7 @@ export async function quotesForTimeline(
   const values = timeline
     .filter((t) => Number.isFinite(t) && t > 0)
     .map((t) => `(${Math.round(t)})`)
-    .join(',');
+    .join(",");
   if (values.length === 0) return [];
   const rows = await q<{ need_ts: number; bid: number | null; ask: number | null }>(
     env.DB,
@@ -145,18 +141,15 @@ export async function quotesForTimeline(
 }
 
 /** Earliest live (1-minute) quote for a pair — the backfill's end boundary. */
-export async function liveHistoryStart(
-  env: Env,
-  pair: string,
-): Promise<number | null> {
+export async function liveHistoryStart(env: Env, pair: string): Promise<number | null> {
   const rows = await q<{ ts: number | null }>(
     env.DB,
-    'SELECT MIN(ts) AS ts FROM quotes WHERE pair = ? AND source = ?',
+    "SELECT MIN(ts) AS ts FROM quotes WHERE pair = ? AND source = ?",
     pair,
     LIVE_SOURCE,
   );
   const ts = rows[0]?.ts ?? null;
-  return typeof ts === 'number' && ts > 0 ? ts : null;
+  return typeof ts === "number" && ts > 0 ? ts : null;
 }
 
 /**
@@ -164,11 +157,7 @@ export async function liveHistoryStart(
  * including both endpoints. Pure — unit tested. Used to build the market
  * backdrop series for the simulator replay chart.
  */
-export function evenTimestamps(
-  fromTs: number,
-  toTs: number,
-  maxPoints: number,
-): number[] {
+export function evenTimestamps(fromTs: number, toTs: number, maxPoints: number): number[] {
   if (
     !Number.isFinite(fromTs) ||
     !Number.isFinite(toTs) ||

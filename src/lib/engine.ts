@@ -1,7 +1,7 @@
 // The Pit v0.1 — pure paper-engine math (no I/O).
 // Implements the CONTRACT.md engine.ts section exactly.
 
-import type { Quote, Side } from './types';
+import type { Quote, Side } from "./types";
 
 export const SLIPPAGE_BPS = 5; // flat slippage on every fill
 export const MAX_LEVERAGE = 3; // per-pair leverage cap
@@ -18,9 +18,7 @@ export function midPrice(q: Quote): number {
  * (Equivalent to mid + half-spread + 5bps slippage; see docs/API.md.)
  */
 export function marketFillPrice(q: Quote, side: Side): number {
-  return side === 'buy'
-    ? q.ask * (1 + SLIPPAGE_BPS / 10000)
-    : q.bid * (1 - SLIPPAGE_BPS / 10000);
+  return side === "buy" ? q.ask * (1 + SLIPPAGE_BPS / 10000) : q.bid * (1 - SLIPPAGE_BPS / 10000);
 }
 
 /** Limit orders rest in the book; when touched they fill AT the limit price. */
@@ -33,7 +31,7 @@ export function limitFillPrice(limitPrice: number): number {
  * a sell-limit fills when bestBid >= limitPrice.
  */
 export function limitTouched(q: Quote, side: Side, limitPrice: number): boolean {
-  return side === 'buy' ? q.ask <= limitPrice : q.bid >= limitPrice;
+  return side === "buy" ? q.ask <= limitPrice : q.bid >= limitPrice;
 }
 
 export interface PositionState {
@@ -59,9 +57,9 @@ export function applyFill(
   fillQty: number,
   fillPrice: number,
 ): FillResult {
-  const signedFill = side === 'buy' ? fillQty : -fillQty;
+  const signedFill = side === "buy" ? fillQty : -fillQty;
   const existing = pos.qty;
-  const cashDelta = side === 'buy' ? -fillQty * fillPrice : fillQty * fillPrice;
+  const cashDelta = side === "buy" ? -fillQty * fillPrice : fillQty * fillPrice;
 
   if (existing === 0 || Math.sign(existing) === Math.sign(signedFill)) {
     // Opening or increasing: volume-weighted average of the new fill.
@@ -81,11 +79,7 @@ export function applyFill(
   // Partial reduce keeps the old average; a full close has avg 0;
   // a flipped remainder opens fresh at the fill price.
   const avgPrice =
-    newQty === 0
-      ? 0
-      : Math.sign(newQty) === Math.sign(existing)
-        ? pos.avgPrice
-        : fillPrice;
+    newQty === 0 ? 0 : Math.sign(newQty) === Math.sign(existing) ? pos.avgPrice : fillPrice;
   return { qty: newQty, avgPrice, realizedPnl, cashDelta };
 }
 
@@ -115,7 +109,12 @@ export function checkLeverage(args: {
   maxLeverage?: number;
 }): LeverageCheck {
   const maxLev = args.maxLeverage ?? MAX_LEVERAGE;
-  const fill = applyFill({ qty: args.posQty, avgPrice: 0 }, args.side, args.orderQty, args.fillPrice);
+  const fill = applyFill(
+    { qty: args.posQty, avgPrice: 0 },
+    args.side,
+    args.orderQty,
+    args.fillPrice,
+  );
   const notional = Math.abs(fill.qty) * args.fillPrice;
   const equity = args.cash + fill.cashDelta + fill.qty * args.fillPrice;
   const leverage = equity > 0 ? notional / equity : notional > 0 ? Infinity : 0;

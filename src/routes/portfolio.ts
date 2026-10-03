@@ -1,19 +1,16 @@
-import type { Env } from '../lib/types';
-import type { ScoreComponents } from '../lib/scoring';
-import { requireAgent, json, err } from '../lib/auth';
-import { q, q1 } from '../lib/db';
-import { midPrice } from '../lib/engine';
+import type { Env } from "../lib/types";
+import type { ScoreComponents } from "../lib/scoring";
+import { requireAgent, json, err } from "../lib/auth";
+import { q, q1 } from "../lib/db";
+import { midPrice } from "../lib/engine";
 
 // GET /api/v1/portfolio?season_id= (agent auth)
-export async function getPortfolio(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function getPortfolio(req: Request, env: Env): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
-  const seasonId = new URL(req.url).searchParams.get('season_id');
+  const seasonId = new URL(req.url).searchParams.get("season_id");
   if (!seasonId) {
-    return err('season_id_required', 'season_id query param is required', 400);
+    return err("season_id_required", "season_id query param is required", 400);
   }
   const entry = await q1<{
     id: string;
@@ -28,12 +25,12 @@ export async function getPortfolio(
     auth.id,
   );
   if (!entry) {
-    return err('entry_not_found', 'No entry for this agent in the season', 404);
+    return err("entry_not_found", "No entry for this agent in the season", 404);
   }
 
   const positions = await q<{ pair: string; qty: number; avg_price: number }>(
     env.DB,
-    'SELECT pair, qty, avg_price FROM positions WHERE entry_id = ? AND qty != 0',
+    "SELECT pair, qty, avg_price FROM positions WHERE entry_id = ? AND qty != 0",
     entry.id,
   );
 
@@ -44,12 +41,10 @@ export async function getPortfolio(
   for (const p of positions) {
     const quote = await q1<{ bid: number; ask: number }>(
       env.DB,
-      'SELECT bid, ask FROM quotes WHERE pair = ? ORDER BY ts DESC LIMIT 1',
+      "SELECT bid, ask FROM quotes WHERE pair = ? ORDER BY ts DESC LIMIT 1",
       p.pair,
     );
-    const mark = quote
-      ? midPrice({ bid: quote.bid, ask: quote.ask, ts: 0 })
-      : p.avg_price;
+    const mark = quote ? midPrice({ bid: quote.bid, ask: quote.ask, ts: 0 }) : p.avg_price;
     equity += p.qty * mark;
     marked.push({ pair: p.pair, qty: p.qty, avg_price: p.avg_price });
   }

@@ -1,14 +1,10 @@
-import type { Env } from '../lib/types';
-import type { EquityPoint } from '../lib/scoring';
-import { json, err } from '../lib/auth';
-import { q, q1, run } from '../lib/db';
-import { computeAlphaScore } from '../lib/scoring';
-import { enqueueWebhookEvent } from '../lib/webhooks';
-import {
-  DEFAULT_SEASON_PARAMS,
-  SUPPORTED_PAIRS,
-  type SeasonParams,
-} from '../lib/leagues';
+import type { Env } from "../lib/types";
+import type { EquityPoint } from "../lib/scoring";
+import { json, err } from "../lib/auth";
+import { q, q1, run } from "../lib/db";
+import { computeAlphaScore } from "../lib/scoring";
+import { enqueueWebhookEvent } from "../lib/webhooks";
+import { DEFAULT_SEASON_PARAMS, SUPPORTED_PAIRS, type SeasonParams } from "../lib/leagues";
 
 interface SeasonRow {
   id: string;
@@ -29,64 +25,63 @@ function officialParams(body: Record<string, unknown>): SeasonParams | { error: 
   } else if (
     Array.isArray(pairsRaw) &&
     pairsRaw.length > 0 &&
-    pairsRaw.every((p) => typeof p === 'string' && (SUPPORTED_PAIRS as readonly string[]).includes(p))
+    pairsRaw.every(
+      (p) => typeof p === "string" && (SUPPORTED_PAIRS as readonly string[]).includes(p),
+    )
   ) {
     pairs = [...new Set(pairsRaw as string[])];
   } else {
-    return { error: `pairs must be a non-empty array drawn from ${SUPPORTED_PAIRS.join(', ')}` };
+    return { error: `pairs must be a non-empty array drawn from ${SUPPORTED_PAIRS.join(", ")}` };
   }
   const num = (v: unknown, lo: number, hi: number, dflt: number) =>
-    typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? v : dflt;
-  const allowShort =
-    body.allow_short === undefined ? true : body.allow_short === true;
+    typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi ? v : dflt;
+  const allowShort = body.allow_short === undefined ? true : body.allow_short === true;
   if (body.allow_short !== undefined && body.allow_short !== true && body.allow_short !== false) {
-    return { error: 'allow_short must be a boolean' };
+    return { error: "allow_short must be a boolean" };
   }
   return {
     pairs,
     season_days: DEFAULT_SEASON_PARAMS.season_days,
-    starting_capital: num(body.starting_capital, 1000, 100000, DEFAULT_SEASON_PARAMS.starting_capital),
+    starting_capital: num(
+      body.starting_capital,
+      1000,
+      100000,
+      DEFAULT_SEASON_PARAMS.starting_capital,
+    ),
     max_leverage: num(body.max_leverage, 1, 3, DEFAULT_SEASON_PARAMS.max_leverage),
     allow_short: allowShort,
   };
 }
 
 // POST /api/v1/admin/seasons (admin auth, applied by the router)
-export async function createSeason(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function createSeason(req: Request, env: Env): Promise<Response> {
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return err('bad_request', 'Request body must be JSON', 400);
+    return err("bad_request", "Request body must be JSON", 400);
   }
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const name = typeof body.name === "string" ? body.name.trim() : "";
   const starts_at = body.starts_at as number;
   const ends_at = body.ends_at as number;
 
   if (name.length === 0 || name.length > 128) {
-    return err('invalid_season', 'name must be 1-128 characters', 422);
+    return err("invalid_season", "name must be 1-128 characters", 422);
   }
   const params = officialParams(body);
-  if ('error' in params) {
-    return err('invalid_season', params.error, 422);
+  if ("error" in params) {
+    return err("invalid_season", params.error, 422);
   }
   if (
-    typeof starts_at !== 'number' ||
-    typeof ends_at !== 'number' ||
+    typeof starts_at !== "number" ||
+    typeof ends_at !== "number" ||
     !Number.isFinite(starts_at) ||
     !Number.isFinite(ends_at)
   ) {
-    return err(
-      'invalid_season',
-      'starts_at and ends_at must be unix ms timestamps',
-      422,
-    );
+    return err("invalid_season", "starts_at and ends_at must be unix ms timestamps", 422);
   }
   if (!(starts_at < ends_at)) {
-    return err('invalid_season', 'starts_at must be before ends_at', 422);
+    return err("invalid_season", "starts_at must be before ends_at", 422);
   }
 
   const id = crypto.randomUUID();
@@ -105,8 +100,8 @@ export async function createSeason(
         pair: params.pairs[0],
         starts_at,
         ends_at,
-        status: 'open',
-        market_type: 'real',
+        status: "open",
+        market_type: "real",
         params,
       },
     },
@@ -117,7 +112,7 @@ export async function createSeason(
 export async function settleSeason(env: Env, seasonId: string): Promise<void> {
   const entries = await q<{ id: string; starting_capital: number }>(
     env.DB,
-    'SELECT id, starting_capital FROM season_entries WHERE season_id = ?',
+    "SELECT id, starting_capital FROM season_entries WHERE season_id = ?",
     seasonId,
   );
   const scored: { entryId: string; alphaScore: number }[] = [];
@@ -125,7 +120,7 @@ export async function settleSeason(env: Env, seasonId: string): Promise<void> {
   for (const e of entries) {
     const snaps = await q<{ ts: number; equity: number }>(
       env.DB,
-      'SELECT ts, equity FROM equity_snapshots WHERE entry_id = ? ORDER BY ts ASC',
+      "SELECT ts, equity FROM equity_snapshots WHERE entry_id = ? ORDER BY ts ASC",
       e.id,
     );
     if (snaps.length < 2) continue; // not scored -> stays null in leaderboard
@@ -163,12 +158,12 @@ export async function settleSeason(env: Env, seasonId: string): Promise<void> {
   }
   scored.sort((a, b) => b.alphaScore - a.alphaScore);
   for (let i = 0; i < scored.length; i++) {
-    await run(env.DB, 'UPDATE scores SET rank = ? WHERE entry_id = ?', i + 1, scored[i].entryId);
+    await run(env.DB, "UPDATE scores SET rank = ? WHERE entry_id = ?", i + 1, scored[i].entryId);
   }
   await run(env.DB, "UPDATE seasons SET status = 'settled' WHERE id = ?", seasonId);
 }
 
-export type SeasonAction = 'open' | 'close' | 'settle';
+export type SeasonAction = "open" | "close" | "settle";
 
 // POST /api/v1/admin/seasons/:id/open|/close|/settle (admin auth, applied by the router)
 export async function seasonTransition(
@@ -179,49 +174,41 @@ export async function seasonTransition(
 ): Promise<Response> {
   const season = await q1<SeasonRow>(
     env.DB,
-    'SELECT id, name, pair, starts_at, ends_at, status, market_type FROM seasons WHERE id = ?',
+    "SELECT id, name, pair, starts_at, ends_at, status, market_type FROM seasons WHERE id = ?",
     seasonId,
   );
   if (!season) {
-    return err('season_not_found', 'Season not found', 404);
+    return err("season_not_found", "Season not found", 404);
   }
   const current = season.status;
 
-  if (action === 'open') {
+  if (action === "open") {
     // "open" auto-advances an open season to live (trading allowed);
     // re-opens a closed season for entry. Settled seasons are final.
-    if (current === 'settled') {
-      return err('bad_transition', 'Settled seasons cannot be re-opened', 409);
+    if (current === "settled") {
+      return err("bad_transition", "Settled seasons cannot be re-opened", 409);
     }
-    const next = current === 'closed' ? 'open' : 'live';
-    await run(env.DB, 'UPDATE seasons SET status = ? WHERE id = ?', next, seasonId);
+    const next = current === "closed" ? "open" : "live";
+    await run(env.DB, "UPDATE seasons SET status = ? WHERE id = ?", next, seasonId);
     return json({ season: { ...season, status: next } });
   }
-  if (action === 'close') {
+  if (action === "close") {
     // live -> closed only
-    if (current !== 'live' && current !== 'closed') {
-      return err(
-        'bad_transition',
-        `Cannot close a season in status '${current}'`,
-        409,
-      );
+    if (current !== "live" && current !== "closed") {
+      return err("bad_transition", `Cannot close a season in status '${current}'`, 409);
     }
     await run(env.DB, "UPDATE seasons SET status = 'closed' WHERE id = ?", seasonId);
-    return json({ season: { ...season, status: 'closed' } });
+    return json({ season: { ...season, status: "closed" } });
   }
   // action === 'settle': closed -> settled, computing final scores
-  if (current !== 'closed' && current !== 'settled') {
-    return err(
-      'bad_transition',
-      `Cannot settle a season in status '${current}'`,
-      409,
-    );
+  if (current !== "closed" && current !== "settled") {
+    return err("bad_transition", `Cannot settle a season in status '${current}'`, 409);
   }
-  if (current === 'settled') {
+  if (current === "settled") {
     return json({ season });
   }
   await settleSeason(env, seasonId);
-  return json({ season: { ...season, status: 'settled' } });
+  return json({ season: { ...season, status: "settled" } });
 }
 
 // POST /api/v1/admin/agents/:id/ban|/unban (admin auth, applied by the router)
@@ -231,16 +218,12 @@ export async function banAgent(
   agentId: string,
   ban: boolean,
 ): Promise<Response> {
-  const agent = await q1<{ id: string }>(
-    env.DB,
-    'SELECT id FROM agents WHERE id = ?',
-    agentId,
-  );
+  const agent = await q1<{ id: string }>(env.DB, "SELECT id FROM agents WHERE id = ?", agentId);
   if (!agent) {
-    return err('agent_not_found', 'Agent not found', 404);
+    return err("agent_not_found", "Agent not found", 404);
   }
-  const status = ban ? 'banned' : 'active';
-  await run(env.DB, 'UPDATE agents SET status = ? WHERE id = ?', status, agentId);
+  const status = ban ? "banned" : "active";
+  await run(env.DB, "UPDATE agents SET status = ? WHERE id = ?", status, agentId);
   return json({ agent: { id: agentId, status } });
 }
 
@@ -265,7 +248,7 @@ export async function takedownEntry(
     entryId,
   );
   if (!entry) {
-    return err('entry_not_found', 'Entry not found', 404);
+    return err("entry_not_found", "Entry not found", 404);
   }
   const openOrders = await q<{
     id: string;
@@ -288,7 +271,7 @@ export async function takedownEntry(
   ]);
   // Webhook: order.cancelled for each open order (never blocks the takedown).
   for (const o of openOrders) {
-    await enqueueWebhookEvent(env, ctx, entry.agent_id, 'order.cancelled', {
+    await enqueueWebhookEvent(env, ctx, entry.agent_id, "order.cancelled", {
       season_id: entry.season_id,
       entry_id: entry.id,
       order_id: o.id,
@@ -297,18 +280,14 @@ export async function takedownEntry(
       qty: o.qty,
       type: o.type,
       limit_price: o.limit_price,
-      reason: 'takedown',
+      reason: "takedown",
     });
   }
-  return json({ entry: { ...entry, status: 'banned' } });
+  return json({ entry: { ...entry, status: "banned" } });
 }
 
 // GET /api/v1/admin/entries/:id/journal (admin auth, applied by the router)
-export async function adminJournal(
-  _req: Request,
-  env: Env,
-  entryId: string,
-): Promise<Response> {
+export async function adminJournal(_req: Request, env: Env, entryId: string): Promise<Response> {
   const entry = await q1<{
     id: string;
     season_id: string;
@@ -328,7 +307,7 @@ export async function adminJournal(
     entryId,
   );
   if (!entry) {
-    return err('entry_not_found', 'Entry not found', 404);
+    return err("entry_not_found", "Entry not found", 404);
   }
   const orders = await q(
     env.DB,

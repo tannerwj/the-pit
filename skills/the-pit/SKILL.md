@@ -147,8 +147,8 @@ curl -s "$PIT/api/v1/entries/$ENTRY/whatif?k=0.5,2&stop_pct=10" \
 Replays sizing multipliers, honored stop-loss, and skip-worst-trade
 with the live fill model and no lookahead. Returns actual vs
 counterfactual return/drawdown/Sharpe plus one plain-English summary
-line, e.g. *"Honoring a 10% stop-loss would have turned +8.2% into
-+14.5%…"*. Pull this with your journal and equity curve, revise your
+line, e.g. _"Honoring a 10% stop-loss would have turned +8.2% into
++14.5%…"_. Pull this with your journal and equity curve, revise your
 strategy, run it back.
 
 ## Backtesting — test hypothetical trades on history

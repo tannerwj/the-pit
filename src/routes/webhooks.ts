@@ -1,16 +1,16 @@
 // The Pit — fill webhooks v1: agent webhook management routes.
 // One webhook per agent. The signing secret is shown once per set (PUT).
 
-import type { Env } from '../lib/types';
-import { requireAgent, json, err } from '../lib/auth';
-import { q, q1 } from '../lib/db';
+import type { Env } from "../lib/types";
+import { requireAgent, json, err } from "../lib/auth";
+import { q, q1 } from "../lib/db";
 import {
   WEBHOOK_EVENTS,
   attemptDelivery,
   checkWebhookUrl,
   newWebhookSecret,
   type WebhookEvent,
-} from '../lib/webhooks';
+} from "../lib/webhooks";
 
 interface WebhookRow {
   id: string;
@@ -40,13 +40,13 @@ function webhookJson(w: WebhookRow) {
 }
 
 function normalizeEvents(input: unknown): string[] | null {
-  if (input === undefined || input === null || input === 'all') {
+  if (input === undefined || input === null || input === "all") {
     return [...WEBHOOK_EVENTS];
   }
   if (!Array.isArray(input) || input.length === 0) return null;
   const out: string[] = [];
   for (const e of input) {
-    if (typeof e !== 'string' || !(WEBHOOK_EVENTS as readonly string[]).includes(e)) {
+    if (typeof e !== "string" || !(WEBHOOK_EVENTS as readonly string[]).includes(e)) {
       return null;
     }
     if (!out.includes(e)) out.push(e);
@@ -55,10 +55,7 @@ function normalizeEvents(input: unknown): string[] | null {
 }
 
 // PUT /api/v1/agents/me/webhook — set (or rotate) the agent's webhook (agent auth)
-export async function setWebhook(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function setWebhook(req: Request, env: Env): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
 
@@ -66,21 +63,21 @@ export async function setWebhook(
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return err('bad_request', 'Request body must be JSON', 400);
+    return err("bad_request", "Request body must be JSON", 400);
   }
   const url = body.url;
-  if (typeof url !== 'string' || url.length === 0) {
-    return err('bad_request', '"url" is required and must be a string', 400);
+  if (typeof url !== "string" || url.length === 0) {
+    return err("bad_request", '"url" is required and must be a string', 400);
   }
   const safety = checkWebhookUrl(url);
   if (!safety.ok) {
-    return err('url_blocked', `Webhook URL rejected: ${safety.reason}`, 422);
+    return err("url_blocked", `Webhook URL rejected: ${safety.reason}`, 422);
   }
   const events = normalizeEvents(body.events);
   if (!events) {
     return err(
-      'bad_events',
-      `"events" must be "all" or a non-empty subset of: ${WEBHOOK_EVENTS.join(', ')}`,
+      "bad_events",
+      `"events" must be "all" or a non-empty subset of: ${WEBHOOK_EVENTS.join(", ")}`,
       422,
     );
   }
@@ -106,7 +103,7 @@ export async function setWebhook(
 
   const row = await q1<WebhookRow>(
     env.DB,
-    'SELECT id, agent_id, url, events, status, consecutive_failures, last_error, created_at, updated_at, last_delivery_at FROM webhooks WHERE agent_id = ?',
+    "SELECT id, agent_id, url, events, status, consecutive_failures, last_error, created_at, updated_at, last_delivery_at FROM webhooks WHERE agent_id = ?",
     auth.id,
   );
   // row must exist — we just upserted it.
@@ -122,19 +119,16 @@ export async function setWebhook(
 }
 
 // GET /api/v1/agents/me/webhook — config (no secret) + recent deliveries (agent auth)
-export async function getWebhook(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function getWebhook(req: Request, env: Env): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
   const row = await q1<WebhookRow>(
     env.DB,
-    'SELECT id, agent_id, url, events, status, consecutive_failures, last_error, created_at, updated_at, last_delivery_at FROM webhooks WHERE agent_id = ?',
+    "SELECT id, agent_id, url, events, status, consecutive_failures, last_error, created_at, updated_at, last_delivery_at FROM webhooks WHERE agent_id = ?",
     auth.id,
   );
   if (!row) {
-    return err('webhook_not_found', 'No webhook registered for this agent', 404);
+    return err("webhook_not_found", "No webhook registered for this agent", 404);
   }
   const deliveries = await q<{
     event_id: string;
@@ -154,56 +148,51 @@ export async function getWebhook(
 }
 
 // DELETE /api/v1/agents/me/webhook — remove the webhook + its delivery log (agent auth)
-export async function deleteWebhook(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function deleteWebhook(req: Request, env: Env): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
   const row = await q1<{ id: string }>(
     env.DB,
-    'SELECT id FROM webhooks WHERE agent_id = ?',
+    "SELECT id FROM webhooks WHERE agent_id = ?",
     auth.id,
   );
   if (!row) {
-    return err('webhook_not_found', 'No webhook registered for this agent', 404);
+    return err("webhook_not_found", "No webhook registered for this agent", 404);
   }
   await env.DB.batch([
-    env.DB.prepare('DELETE FROM webhook_deliveries WHERE webhook_id = ?').bind(row.id),
-    env.DB.prepare('DELETE FROM webhooks WHERE id = ?').bind(row.id),
+    env.DB.prepare("DELETE FROM webhook_deliveries WHERE webhook_id = ?").bind(row.id),
+    env.DB.prepare("DELETE FROM webhooks WHERE id = ?").bind(row.id),
   ]);
   return json({ deleted: true });
 }
 
 // POST /api/v1/agents/me/webhook/ping — send a test event now (agent auth)
-export async function pingWebhook(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function pingWebhook(req: Request, env: Env): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
   const row = await q1<{ id: string; status: string }>(
     env.DB,
-    'SELECT id, status FROM webhooks WHERE agent_id = ?',
+    "SELECT id, status FROM webhooks WHERE agent_id = ?",
     auth.id,
   );
   if (!row) {
-    return err('webhook_not_found', 'No webhook registered for this agent', 404);
+    return err("webhook_not_found", "No webhook registered for this agent", 404);
   }
-  if (row.status !== 'active') {
+  if (row.status !== "active") {
     return err(
-      'webhook_disabled',
-      'Webhook is disabled after repeated delivery failures; set it again to re-enable',
+      "webhook_disabled",
+      "Webhook is disabled after repeated delivery failures; set it again to re-enable",
       409,
     );
   }
   const event: WebhookEvent = {
-    id: `evt_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
-    type: 'webhook.ping',
+    id: `evt_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`,
+    type: "webhook.ping",
     created_at: Date.now(),
     data: {
       agent_id: auth.id,
-      message: 'Test ping from The Pit. If you can read this, your endpoint verifies signatures correctly.',
+      message:
+        "Test ping from The Pit. If you can read this, your endpoint verifies signatures correctly.",
     },
   };
   const payload = JSON.stringify(event);

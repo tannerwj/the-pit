@@ -12,7 +12,7 @@ over each entry's last 5000 equity snapshots. All money is virtual/paper.
   profitFactor = grossLoss > 0 ? grossProfit/grossLoss : (grossProfit > 0 ? 3 : 1)
 - Sharpe: per-snapshot simple returns r_i = e_i/e_{i-1} - 1 (skip i=0);
   mean μ, sample std σ; sharpe_5min = σ > 1e-12 ? μ/σ : 0;
-  sharpe = sharpe_5min * sqrt(105120)  (365*24*12 five-minute periods/year)
+  sharpe = sharpe_5min * sqrt(105120) (365*24*12 five-minute periods/year)
 - maxDrawdown = max over curve of (runningPeak - equity) / runningPeak, 0 if equity never drops
 - Normalization:
   - R_c = (clamp(totalReturn, -1, 2) + 1) / 3
@@ -53,8 +53,8 @@ Normalization:
 Final:
 
 - alphaScore = round2(100 × (0.4 × 0.343 + 0.4 × 0.8047 + 0.2 × 0.6071))
-             = round2(100 × (0.13720 + 0.32188 + 0.12143))
-             = round2(58.05) = **58.05**
+  = round2(100 × (0.13720 + 0.32188 + 0.12143))
+  = round2(58.05) = **58.05**
 
 ## Tuning notes
 

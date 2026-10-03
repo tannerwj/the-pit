@@ -3,8 +3,8 @@
 // math, including the required property: a +200%/60%-DD curve MUST score
 // strictly below a +30%/5%-DD curve. If that property fails, the formula
 // itself stays fixed and the numbers are reported back — never retuned here.
-import { describe, expect, it } from 'vitest';
-import { computeAlphaScore, type EquityPoint } from '../src/lib/scoring';
+import { describe, expect, it } from "vitest";
+import { computeAlphaScore, type EquityPoint } from "../src/lib/scoring";
 
 const DAY_MS = 86_400_000;
 const SNAP_MS = 5 * 60 * 1000; // five-minute snapshots
@@ -75,8 +75,8 @@ function buildCurve(seed: number, segments: Segment[], startTs: number): EquityP
 const SEASON_START = Date.UTC(2026, 0, 1); // midnight UTC, day-aligned
 const STARTING = 10000;
 
-describe('flat curve', () => {
-  it('scores the neutral case: all components at their neutral values', () => {
+describe("flat curve", () => {
+  it("scores the neutral case: all components at their neutral values", () => {
     const points: EquityPoint[] = [];
     for (let i = 0; i < 14 * SNAPS_PER_DAY; i++) {
       points.push({ ts: SEASON_START + i * SNAP_MS, equity: STARTING });
@@ -93,8 +93,8 @@ describe('flat curve', () => {
   });
 });
 
-describe('single-day / degenerate curves', () => {
-  it('fewer than 2 valid days => winRate=1, profitFactor=1', () => {
+describe("single-day / degenerate curves", () => {
+  it("fewer than 2 valid days => winRate=1, profitFactor=1", () => {
     const points: EquityPoint[] = [];
     for (let i = 0; i < 10; i++) {
       points.push({ ts: SEASON_START + i * SNAP_MS, equity: STARTING + i * 10 });
@@ -105,7 +105,7 @@ describe('single-day / degenerate curves', () => {
     expect(s.totalReturn).toBeCloseTo(90 / STARTING, 10);
   });
 
-  it('a single snapshot degenerates gracefully', () => {
+  it("a single snapshot degenerates gracefully", () => {
     const s = computeAlphaScore([{ ts: SEASON_START, equity: STARTING }], STARTING);
     expect(s.winRate).toBe(1);
     expect(s.profitFactor).toBe(1);
@@ -113,7 +113,7 @@ describe('single-day / degenerate curves', () => {
     expect(s.maxDrawdown).toBe(0);
   });
 
-  it('is order-independent (snapshots sorted internally)', () => {
+  it("is order-independent (snapshots sorted internally)", () => {
     const points: EquityPoint[] = [];
     for (let i = 0; i < 2 * SNAPS_PER_DAY; i++) {
       points.push({ ts: SEASON_START + i * SNAP_MS, equity: STARTING + i });
@@ -124,8 +124,8 @@ describe('single-day / degenerate curves', () => {
   });
 });
 
-describe('day-return grouping', () => {
-  it('uses UTC day boundaries', () => {
+describe("day-return grouping", () => {
+  it("uses UTC day boundaries", () => {
     // Equity doubles within day 1, flat on day 2.
     const points: EquityPoint[] = [
       { ts: SEASON_START, equity: 100 },
@@ -141,7 +141,7 @@ describe('day-return grouping', () => {
     expect(s.profitFactor).toBe(3);
   });
 
-  it('profitFactor divides gross profit by gross loss', () => {
+  it("profitFactor divides gross profit by gross loss", () => {
     // Day 1: 100 -> 150 (+50%). Day 2: 150 -> 100 (-33.3%).
     const points: EquityPoint[] = [
       { ts: SEASON_START, equity: 100 },
@@ -154,7 +154,7 @@ describe('day-return grouping', () => {
     expect(s.profitFactor).toBeCloseTo(0.5 / (1 / 3), 10);
   });
 
-  it('days with a single snapshot are skipped', () => {
+  it("days with a single snapshot are skipped", () => {
     const points: EquityPoint[] = [
       { ts: SEASON_START, equity: 100 },
       { ts: SEASON_START + DAY_MS, equity: 200 },
@@ -167,8 +167,8 @@ describe('day-return grouping', () => {
   });
 });
 
-describe('maxDrawdown', () => {
-  it('measures peak-to-trough as a 0..1 fraction', () => {
+describe("maxDrawdown", () => {
+  it("measures peak-to-trough as a 0..1 fraction", () => {
     const points: EquityPoint[] = [
       { ts: SEASON_START, equity: 100 },
       { ts: SEASON_START + SNAP_MS, equity: 200 },
@@ -179,7 +179,7 @@ describe('maxDrawdown', () => {
     expect(s.maxDrawdown).toBeCloseTo(0.4, 10);
   });
 
-  it('is 0 when equity never drops', () => {
+  it("is 0 when equity never drops", () => {
     const points: EquityPoint[] = [
       { ts: SEASON_START, equity: 100 },
       { ts: SEASON_START + SNAP_MS, equity: 100 },
@@ -189,7 +189,7 @@ describe('maxDrawdown', () => {
   });
 });
 
-describe('Alpha Score v1 property (REQUIRED)', () => {
+describe("Alpha Score v1 property (REQUIRED)", () => {
   // Curve A: jagged, ends ~+200% with ~60% max drawdown.
   // Rally 10k -> 28k (4 days), crash to 11.2k (3 days, -60%), climb to 30k (7 days).
   const curveA = buildCurve(
@@ -212,24 +212,24 @@ describe('Alpha Score v1 property (REQUIRED)', () => {
   const a = computeAlphaScore(curveA, STARTING);
   const b = computeAlphaScore(curveB, STARTING);
 
-  it('curve A really is the jagged +200% / 60%-DD case', () => {
+  it("curve A really is the jagged +200% / 60%-DD case", () => {
     expect(a.totalReturn).toBeGreaterThan(1.8);
     expect(a.totalReturn).toBeLessThan(2.2);
     expect(a.maxDrawdown).toBeGreaterThan(0.5);
     expect(a.maxDrawdown).toBeLessThan(0.7);
     // eslint-disable-next-line no-console
-    console.log('A components:', JSON.stringify(a));
+    console.log("A components:", JSON.stringify(a));
   });
 
-  it('curve B really is the smooth +30% / low-DD case', () => {
+  it("curve B really is the smooth +30% / low-DD case", () => {
     expect(b.totalReturn).toBeGreaterThan(0.25);
     expect(b.totalReturn).toBeLessThan(0.35);
     expect(b.maxDrawdown).toBeLessThan(0.05);
     // eslint-disable-next-line no-console
-    console.log('B components:', JSON.stringify(b));
+    console.log("B components:", JSON.stringify(b));
   });
 
-  it('smooth +30% scores STRICTLY above jagged +200% with 60% DD', () => {
+  it("smooth +30% scores STRICTLY above jagged +200% with 60% DD", () => {
     // eslint-disable-next-line no-console
     console.log(`alphaScore(A)=${a.alphaScore} alphaScore(B)=${b.alphaScore}`);
     expect(b.alphaScore).toBeGreaterThan(a.alphaScore);

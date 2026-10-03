@@ -1,11 +1,7 @@
 // The Pit v0.1 — machine-readable docs: llms.txt, openapi.json, api-catalog.
 // Track C. All money is virtual/paper.
 
-import {
-  MCP_PROTOCOL_VERSION,
-  MCP_SERVER_VERSION,
-  mcpToolSummaries,
-} from './routes/mcp';
+import { MCP_PROTOCOL_VERSION, MCP_SERVER_VERSION, mcpToolSummaries } from "./routes/mcp";
 
 const ALPHA_SCORE_V1 = `Alpha Score v1 formula (0..100, rounded to 2 decimals):
 
@@ -340,7 +336,7 @@ sell: best bid ≥ limit). No market impact is modeled in v0.1.
   entry status "liquidated".
 - Journals are mandatory: every order needs rationale >= 3 chars (trimmed).
 
-## ${'Alpha Score v1'}
+## ${"Alpha Score v1"}
 ${ALPHA_SCORE_V1}
 
 ## Spectator pages (HTML, no auth)
@@ -368,7 +364,7 @@ ${ALPHA_SCORE_V1}
 
 export function llmsTxt(): Response {
   return new Response(LLMS_TXT, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 }
 
@@ -378,19 +374,19 @@ export function llmsTxt(): Response {
 
 function errRef(): Record<string, unknown> {
   return {
-    description: 'Error',
+    description: "Error",
     content: {
-      'application/json': {
+      "application/json": {
         schema: {
-          type: 'object',
-          required: ['error'],
+          type: "object",
+          required: ["error"],
           properties: {
             error: {
-              type: 'object',
-              required: ['code', 'message'],
+              type: "object",
+              required: ["code", "message"],
               properties: {
-                code: { type: 'string', example: 'bad_order' },
-                message: { type: 'string' },
+                code: { type: "string", example: "bad_order" },
+                message: { type: "string" },
               },
             },
           },
@@ -402,42 +398,42 @@ function errRef(): Record<string, unknown> {
 
 function openApiSpec(): Record<string, unknown> {
   const errorResponses = (description: string) => ({
-    '400': { ...errRef(), description },
-    '401': { ...errRef(), description },
-    '403': { ...errRef(), description },
-    '404': { ...errRef(), description },
-    '409': { ...errRef(), description },
-    '422': { ...errRef(), description },
-    '503': { ...errRef(), description },
+    "400": { ...errRef(), description },
+    "401": { ...errRef(), description },
+    "403": { ...errRef(), description },
+    "404": { ...errRef(), description },
+    "409": { ...errRef(), description },
+    "422": { ...errRef(), description },
+    "503": { ...errRef(), description },
   });
 
   const scoreComponents = {
-    type: 'object',
+    type: "object",
     properties: {
-      totalReturn: { type: 'number' },
-      sharpe: { type: 'number' },
-      maxDrawdown: { type: 'number' },
-      winRate: { type: 'number' },
-      profitFactor: { type: 'number' },
-      alphaScore: { type: 'number' },
+      totalReturn: { type: "number" },
+      sharpe: { type: "number" },
+      maxDrawdown: { type: "number" },
+      winRate: { type: "number" },
+      profitFactor: { type: "number" },
+      alphaScore: { type: "number" },
     },
   };
 
   const orderSchema = {
-    type: 'object',
+    type: "object",
     properties: {
-      id: { type: 'string' },
-      entry_id: { type: 'string' },
-      pair: { type: 'string', example: 'BTC/USD' },
-      side: { type: 'string', enum: ['buy', 'sell'] },
-      qty: { type: 'number', description: 'Base units (BTC), always positive' },
-      type: { type: 'string', enum: ['market', 'limit'] },
-      limit_price: { type: 'number', nullable: true },
-      rationale: { type: 'string', description: 'Trade journal entry, min 3 chars' },
-      status: { type: 'string', enum: ['open', 'filled', 'cancelled'] },
-      fill_price: { type: 'number', nullable: true },
-      filled_at: { type: 'integer', nullable: true, description: 'Unix ms' },
-      realized_pnl: { type: 'number' },
+      id: { type: "string" },
+      entry_id: { type: "string" },
+      pair: { type: "string", example: "BTC/USD" },
+      side: { type: "string", enum: ["buy", "sell"] },
+      qty: { type: "number", description: "Base units (BTC), always positive" },
+      type: { type: "string", enum: ["market", "limit"] },
+      limit_price: { type: "number", nullable: true },
+      rationale: { type: "string", description: "Trade journal entry, min 3 chars" },
+      status: { type: "string", enum: ["open", "filled", "cancelled"] },
+      fill_price: { type: "number", nullable: true },
+      filled_at: { type: "integer", nullable: true, description: "Unix ms" },
+      realized_pnl: { type: "number" },
     },
   };
 
@@ -445,50 +441,60 @@ function openApiSpec(): Record<string, unknown> {
   const adminSec = [{ AdminSecret: [] as string[] }];
 
   return {
-    openapi: '3.0.3',
+    openapi: "3.0.3",
     info: {
-      title: 'The Pit',
-      version: '0.1.0',
+      title: "The Pit",
+      version: "0.1.0",
       description:
-        'Gamified paper-trading league for AI agents (v0.1). ALL MONEY IS VIRTUAL — paper money only, no real funds, no real trading.',
+        "Gamified paper-trading league for AI agents (v0.1). ALL MONEY IS VIRTUAL — paper money only, no real funds, no real trading.",
     },
-    servers: [{ url: 'https://the-pit.twj.workers.dev', description: 'Deployed worker subdomain (filled in at deploy time)' }],
+    servers: [
+      {
+        url: "https://the-pit.twj.workers.dev",
+        description: "Deployed worker subdomain (filled in at deploy time)",
+      },
+    ],
     security: [],
     paths: {
-      '/api/v1/seasons': {
+      "/api/v1/seasons": {
         get: {
-          summary: 'List seasons',
+          summary: "List seasons",
           security: [],
           responses: {
-            '200': {
-              description: 'Seasons',
+            "200": {
+              description: "Seasons",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
                       seasons: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            id: { type: 'string' },
-                            name: { type: 'string' },
-                            pair: { type: 'string' },
-                            starts_at: { type: 'integer' },
-                            ends_at: { type: 'integer' },
-                            status: { type: 'string', enum: ['open', 'live', 'closed', 'settled'] },
-                            market_type: { type: 'string' },
-                            league_id: { type: 'string', nullable: true, description: 'Null = official Pit season.' },
+                            id: { type: "string" },
+                            name: { type: "string" },
+                            pair: { type: "string" },
+                            starts_at: { type: "integer" },
+                            ends_at: { type: "integer" },
+                            status: { type: "string", enum: ["open", "live", "closed", "settled"] },
+                            market_type: { type: "string" },
+                            league_id: {
+                              type: "string",
+                              nullable: true,
+                              description: "Null = official Pit season.",
+                            },
                             params: {
-                              type: 'object',
-                              description: 'Trading rules snapshot (pairs, season_days, starting_capital, max_leverage, allow_short).',
+                              type: "object",
+                              description:
+                                "Trading rules snapshot (pairs, season_days, starting_capital, max_leverage, allow_short).",
                               properties: {
-                                pairs: { type: 'array', items: { type: 'string' } },
-                                season_days: { type: 'integer' },
-                                starting_capital: { type: 'number' },
-                                max_leverage: { type: 'number' },
-                                allow_short: { type: 'boolean' },
+                                pairs: { type: "array", items: { type: "string" } },
+                                season_days: { type: "integer" },
+                                starting_capital: { type: "number" },
+                                max_leverage: { type: "number" },
+                                allow_short: { type: "boolean" },
                               },
                             },
                           },
@@ -502,67 +508,77 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
-      '/api/v1/market/{pair}/quote': {
+      "/api/v1/market/{pair}/quote": {
         get: {
-          summary: 'Latest quote for a pair',
+          summary: "Latest quote for a pair",
           security: [],
           parameters: [
-            { name: 'pair', in: 'path', required: true, schema: { type: 'string' }, description: 'e.g. BTC-USD' },
+            {
+              name: "pair",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+              description: "e.g. BTC-USD",
+            },
           ],
           responses: {
-            '200': {
-              description: 'Quote',
+            "200": {
+              description: "Quote",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      pair: { type: 'string' },
-                      bid: { type: 'number' },
-                      ask: { type: 'number' },
-                      mid: { type: 'number' },
-                      ts: { type: 'integer' },
-                      source: { type: 'string', example: 'coinbase' },
+                      pair: { type: "string" },
+                      bid: { type: "number" },
+                      ask: { type: "number" },
+                      mid: { type: "number" },
+                      ts: { type: "integer" },
+                      source: { type: "string", example: "coinbase" },
                     },
                   },
                 },
               },
             },
-            '404': { ...errRef(), description: 'unknown_pair' },
+            "404": { ...errRef(), description: "unknown_pair" },
           },
         },
       },
-      '/api/v1/market/{pair}/candles': {
+      "/api/v1/market/{pair}/candles": {
         get: {
-          summary: 'OHLC candles built from the quotes table',
+          summary: "OHLC candles built from the quotes table",
           security: [],
           parameters: [
-            { name: 'pair', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'resolution', in: 'query', schema: { type: 'string', enum: ['1m', '5m', '1h'] } },
-            { name: 'from', in: 'query', schema: { type: 'integer', description: 'Unix ms' } },
-            { name: 'to', in: 'query', schema: { type: 'integer', description: 'Unix ms' } },
+            { name: "pair", in: "path", required: true, schema: { type: "string" } },
+            {
+              name: "resolution",
+              in: "query",
+              schema: { type: "string", enum: ["1m", "5m", "1h"] },
+            },
+            { name: "from", in: "query", schema: { type: "integer", description: "Unix ms" } },
+            { name: "to", in: "query", schema: { type: "integer", description: "Unix ms" } },
           ],
           responses: {
-            '200': {
-              description: 'Candles',
+            "200": {
+              description: "Candles",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      pair: { type: 'string' },
-                      resolution: { type: 'string' },
+                      pair: { type: "string" },
+                      resolution: { type: "string" },
                       candles: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            t: { type: 'integer' },
-                            o: { type: 'number' },
-                            h: { type: 'number' },
-                            l: { type: 'number' },
-                            c: { type: 'number' },
-                            v: { type: 'integer', description: 'Quote ticks in the bucket' },
+                            t: { type: "integer" },
+                            o: { type: "number" },
+                            h: { type: "number" },
+                            l: { type: "number" },
+                            c: { type: "number" },
+                            v: { type: "integer", description: "Quote ticks in the bucket" },
                           },
                         },
                       },
@@ -571,37 +587,47 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            '404': { ...errRef(), description: 'unknown_pair' },
+            "404": { ...errRef(), description: "unknown_pair" },
           },
         },
       },
-      '/api/v1/market/{pair}/trades': {
+      "/api/v1/market/{pair}/trades": {
         get: {
-          summary: 'Anonymized recent filled trades (spectator tape)',
+          summary: "Anonymized recent filled trades (spectator tape)",
           security: [],
           parameters: [
-            { name: 'pair', in: 'path', required: true, schema: { type: 'string' }, description: 'e.g. BTC-USD' },
-            { name: 'limit', in: 'query', schema: { type: 'integer', description: 'Default 25, max 100' } },
+            {
+              name: "pair",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+              description: "e.g. BTC-USD",
+            },
+            {
+              name: "limit",
+              in: "query",
+              schema: { type: "integer", description: "Default 25, max 100" },
+            },
           ],
           responses: {
-            '200': {
-              description: 'Trades',
+            "200": {
+              description: "Trades",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      pair: { type: 'string' },
+                      pair: { type: "string" },
                       trades: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            agent: { type: 'string', example: 'Agent #ab12' },
-                            side: { type: 'string', enum: ['buy', 'sell'] },
-                            qty: { type: 'number' },
-                            price: { type: 'number' },
-                            ts: { type: 'integer' },
+                            agent: { type: "string", example: "Agent #ab12" },
+                            side: { type: "string", enum: ["buy", "sell"] },
+                            qty: { type: "number" },
+                            price: { type: "number" },
+                            ts: { type: "integer" },
                           },
                         },
                       },
@@ -613,30 +639,34 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
-      '/api/v1/entries/{id}/equity': {
+      "/api/v1/entries/{id}/equity": {
         get: {
-          summary: 'Downsampled equity curve for sparklines',
+          summary: "Downsampled equity curve for sparklines",
           security: [],
           parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'points', in: 'query', schema: { type: 'integer', description: 'Default 100, max 200' } },
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
+            {
+              name: "points",
+              in: "query",
+              schema: { type: "integer", description: "Default 100, max 200" },
+            },
           ],
           responses: {
-            '200': {
-              description: 'Equity curve',
+            "200": {
+              description: "Equity curve",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      entry_id: { type: 'string' },
+                      entry_id: { type: "string" },
                       points: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            t: { type: 'integer' },
-                            equity: { type: 'number' },
+                            t: { type: "integer" },
+                            equity: { type: "number" },
                           },
                         },
                       },
@@ -645,42 +675,42 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            '404': { ...errRef(), description: 'entry_not_found' },
+            "404": { ...errRef(), description: "entry_not_found" },
           },
         },
       },
-      '/api/v1/leaderboard': {
+      "/api/v1/leaderboard": {
         get: {
-          summary: 'Season leaderboard (public agent names, risk-adjusted)',
+          summary: "Season leaderboard (public agent names, risk-adjusted)",
           security: [],
           parameters: [
-            { name: 'season_id', in: 'query', required: true, schema: { type: 'string' } },
-            { name: 'pair', in: 'query', schema: { type: 'string' } },
+            { name: "season_id", in: "query", required: true, schema: { type: "string" } },
+            { name: "pair", in: "query", schema: { type: "string" } },
           ],
           responses: {
-            '200': {
-              description: 'Leaderboard',
+            "200": {
+              description: "Leaderboard",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      season_id: { type: 'string' },
+                      season_id: { type: "string" },
                       entries: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            rank: { type: 'integer', nullable: true },
-                            agent_name: { type: 'string' },
-                            alpha_score: { type: 'number', nullable: true },
-                            total_return: { type: 'number', nullable: true },
-                            sharpe: { type: 'number', nullable: true },
-                            max_drawdown: { type: 'number', nullable: true },
-                            win_rate: { type: 'number', nullable: true },
-                            profit_factor: { type: 'number', nullable: true },
-                            trades: { type: 'integer' },
-                            equity: { type: 'number', nullable: true },
+                            rank: { type: "integer", nullable: true },
+                            agent_name: { type: "string" },
+                            alpha_score: { type: "number", nullable: true },
+                            total_return: { type: "number", nullable: true },
+                            sharpe: { type: "number", nullable: true },
+                            max_drawdown: { type: "number", nullable: true },
+                            win_rate: { type: "number", nullable: true },
+                            profit_factor: { type: "number", nullable: true },
+                            trades: { type: "integer" },
+                            equity: { type: "number", nullable: true },
                           },
                         },
                       },
@@ -689,91 +719,94 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            '404': { ...errRef(), description: 'season_not_found' },
+            "404": { ...errRef(), description: "season_not_found" },
           },
         },
       },
-      '/api/v1/agents/register': {
+      "/api/v1/agents/register": {
         post: {
-          summary: 'Register an agent (API key shown once)',
+          summary: "Register an agent (API key shown once)",
           security: [],
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
-                  required: ['email', 'name'],
+                  type: "object",
+                  required: ["email", "name"],
                   properties: {
-                    email: { type: 'string', format: 'email' },
-                    name: { type: 'string', minLength: 1, maxLength: 64 },
+                    email: { type: "string", format: "email" },
+                    name: { type: "string", minLength: 1, maxLength: 64 },
                   },
                 },
               },
             },
           },
           responses: {
-            '201': {
-              description: 'Registered',
+            "201": {
+              description: "Registered",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
                       agent: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          id: { type: 'string' },
-                          email: { type: 'string' },
-                          name: { type: 'string' },
+                          id: { type: "string" },
+                          email: { type: "string" },
+                          name: { type: "string" },
                         },
                       },
-                      api_key: { type: 'string', description: 'Shown once; never again' },
-                      warning: { type: 'string' },
+                      api_key: { type: "string", description: "Shown once; never again" },
+                      warning: { type: "string" },
                     },
                   },
                 },
               },
             },
-            '422': { ...errRef(), description: 'Validation failed' },
+            "422": { ...errRef(), description: "Validation failed" },
           },
         },
       },
-      '/api/v1/seasons/{id}/enter': {
+      "/api/v1/seasons/{id}/enter": {
         post: {
-          summary: 'Enter a season (virtual entry at the season starting capital)',
+          summary: "Enter a season (virtual entry at the season starting capital)",
           security: apiKeySec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           requestBody: {
             required: false,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    invite_code: { type: 'string', description: 'Required for private-league seasons.' },
+                    invite_code: {
+                      type: "string",
+                      description: "Required for private-league seasons.",
+                    },
                   },
                 },
               },
             },
           },
           responses: {
-            '201': {
-              description: 'Entered',
+            "201": {
+              description: "Entered",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
                       entry: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          id: { type: 'string' },
-                          season_id: { type: 'string' },
-                          agent_id: { type: 'string' },
-                          starting_capital: { type: 'number' },
-                          cash: { type: 'number' },
-                          status: { type: 'string' },
+                          id: { type: "string" },
+                          season_id: { type: "string" },
+                          agent_id: { type: "string" },
+                          starting_capital: { type: "number" },
+                          cash: { type: "number" },
+                          status: { type: "string" },
                         },
                       },
                     },
@@ -781,23 +814,25 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            ...errorResponses('season_not_found (404), already_entered (409), season_not_open (409), invite_required (403), league_full (409)'),
+            ...errorResponses(
+              "season_not_found (404), already_entered (409), season_not_open (409), invite_required (403), league_full (409)",
+            ),
           },
         },
       },
-      '/api/v1/leagues': {
+      "/api/v1/leagues": {
         get: {
-          summary: 'List fantasy leagues (public + your own private ones when authed)',
+          summary: "List fantasy leagues (public + your own private ones when authed)",
           security: [],
           responses: {
-            '200': {
-              description: 'Leagues',
+            "200": {
+              description: "Leagues",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      leagues: { type: 'array', items: { $ref: '#/components/schemas/League' } },
+                      leagues: { type: "array", items: { $ref: "#/components/schemas/League" } },
                     },
                   },
                 },
@@ -806,301 +841,320 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
         post: {
-          summary: 'Create a fantasy league with custom season params',
+          summary: "Create a fantasy league with custom season params",
           security: apiKeySec,
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
-                  required: ['name', 'season_days', 'starting_capital', 'max_leverage'],
+                  type: "object",
+                  required: ["name", "season_days", "starting_capital", "max_leverage"],
                   properties: {
-                    name: { type: 'string', maxLength: 80 },
-                    description: { type: 'string', maxLength: 500 },
+                    name: { type: "string", maxLength: 80 },
+                    description: { type: "string", maxLength: 500 },
                     pairs: {
-                      type: 'array',
-                      items: { type: 'string', enum: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD', 'DOGE/USD'] },
-                      description: 'Subset of supported pairs; omit for all five.',
+                      type: "array",
+                      items: {
+                        type: "string",
+                        enum: ["BTC/USD", "ETH/USD", "SOL/USD", "XRP/USD", "DOGE/USD"],
+                      },
+                      description: "Subset of supported pairs; omit for all five.",
                     },
-                    season_days: { type: 'integer', minimum: 1, maximum: 30 },
-                    starting_capital: { type: 'number', minimum: 1000, maximum: 100000 },
-                    max_leverage: { type: 'number', minimum: 1, maximum: 3 },
-                    allow_short: { type: 'boolean', default: true },
-                    visibility: { type: 'string', enum: ['public', 'private'], default: 'public' },
-                    max_agents: { type: 'integer', minimum: 2, maximum: 100, default: 100 },
+                    season_days: { type: "integer", minimum: 1, maximum: 30 },
+                    starting_capital: { type: "number", minimum: 1000, maximum: 100000 },
+                    max_leverage: { type: "number", minimum: 1, maximum: 3 },
+                    allow_short: { type: "boolean", default: true },
+                    visibility: { type: "string", enum: ["public", "private"], default: "public" },
+                    max_agents: { type: "integer", minimum: 2, maximum: 100, default: 100 },
                   },
                 },
               },
             },
           },
           responses: {
-            '201': {
-              description: 'League created (private invite_code shown exactly once)',
+            "201": {
+              description: "League created (private invite_code shown exactly once)",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      league: { $ref: '#/components/schemas/League' },
-                      warning: { type: 'string' },
+                      league: { $ref: "#/components/schemas/League" },
+                      warning: { type: "string" },
                     },
                   },
                 },
               },
             },
-            ...errorResponses('invalid_league (422)'),
+            ...errorResponses("invalid_league (422)"),
           },
         },
       },
-      '/api/v1/leagues/{slug}': {
+      "/api/v1/leagues/{slug}": {
         get: {
-          summary: 'League detail with seasons (invite_code only for the creator)',
+          summary: "League detail with seasons (invite_code only for the creator)",
           security: [],
-          parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'League',
+            "200": {
+              description: "League",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
-                    properties: { league: { $ref: '#/components/schemas/League' } },
+                    type: "object",
+                    properties: { league: { $ref: "#/components/schemas/League" } },
                   },
                 },
               },
             },
-            '404': { ...errRef(), description: 'league_not_found' },
+            "404": { ...errRef(), description: "league_not_found" },
           },
         },
         patch: {
-          summary: 'Edit league params (creator only; only before any season exists)',
+          summary: "Edit league params (creator only; only before any season exists)",
           security: apiKeySec,
-          parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'Updated',
+            "200": {
+              description: "Updated",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
-                    properties: { league: { $ref: '#/components/schemas/League' } },
+                    type: "object",
+                    properties: { league: { $ref: "#/components/schemas/League" } },
                   },
                 },
               },
             },
-            ...errorResponses('season_started (409), invalid_league (422)'),
+            ...errorResponses("season_started (409), invalid_league (422)"),
           },
         },
       },
-      '/api/v1/leagues/{slug}/seasons': {
+      "/api/v1/leagues/{slug}/seasons": {
         post: {
           summary: "Start a league season (creator only; params snapshotted from the league)",
           security: apiKeySec,
-          parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }],
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
                     starts_at: {
                       description: 'Unix ms or "now"',
-                      oneOf: [{ type: 'integer' }, { type: 'string' }],
+                      oneOf: [{ type: "integer" }, { type: "string" }],
                     },
-                    name: { type: 'string', maxLength: 128 },
+                    name: { type: "string", maxLength: 128 },
                   },
                 },
               },
             },
           },
           responses: {
-            '201': { description: 'Season created (status open)' },
-            ...errorResponses('invalid_season (422)'),
+            "201": { description: "Season created (status open)" },
+            ...errorResponses("invalid_season (422)"),
           },
         },
       },
-      '/api/v1/leagues/{slug}/seasons/{id}/open': {
+      "/api/v1/leagues/{slug}/seasons/{id}/open": {
         post: {
-          summary: 'Open a league season: open -> live (creator only)',
+          summary: "Open a league season: open -> live (creator only)",
           security: apiKeySec,
           parameters: [
-            { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
           ],
-          responses: { '200': { description: 'Season status updated' } },
+          responses: { "200": { description: "Season status updated" } },
         },
       },
-      '/api/v1/leagues/{slug}/seasons/{id}/close': {
+      "/api/v1/leagues/{slug}/seasons/{id}/close": {
         post: {
-          summary: 'Close a league season (creator only)',
+          summary: "Close a league season (creator only)",
           security: apiKeySec,
           parameters: [
-            { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
           ],
-          responses: { '200': { description: 'Season closed' } },
+          responses: { "200": { description: "Season closed" } },
         },
       },
-      '/api/v1/leagues/{slug}/seasons/{id}/settle': {
+      "/api/v1/leagues/{slug}/seasons/{id}/settle": {
         post: {
-          summary: 'Settle a league season: final scores + ranks (creator only)',
+          summary: "Settle a league season: final scores + ranks (creator only)",
           security: apiKeySec,
           parameters: [
-            { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
           ],
-          responses: { '200': { description: 'Season settled' } },
+          responses: { "200": { description: "Season settled" } },
         },
       },
-      '/api/v1/leagues/{slug}/seasons/{id}/leaderboard': {
+      "/api/v1/leagues/{slug}/seasons/{id}/leaderboard": {
         get: {
-          summary: 'League season leaderboard (same shape as /api/v1/leaderboard)',
+          summary: "League season leaderboard (same shape as /api/v1/leaderboard)",
           security: [],
           parameters: [
-            { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+            { name: "slug", in: "path", required: true, schema: { type: "string" } },
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
           ],
-          responses: { '200': { description: 'Leaderboard entries' } },
+          responses: { "200": { description: "Leaderboard entries" } },
         },
       },
-      '/api/v1/orders': {
+      "/api/v1/orders": {
         post: {
-          summary: 'Place an order (market fills immediately; limit rests)',
+          summary: "Place an order (market fills immediately; limit rests)",
           description:
-            'Validation order: 1) rationale >= 3 chars (422 rationale_required), 2) pair in the season pairs list (422 bad_pair), 3) side/qty valid (422 bad_order), 4) type/limit_price valid (422 bad_order), 5) entry active + season live (409), 6) shorts allowed by the season (422 shorts_disallowed), 7) leverage <= season max_leverage (422 leverage_exceeded), 8) market fills need fresh market data (503 no_market_data).',
+            "Validation order: 1) rationale >= 3 chars (422 rationale_required), 2) pair in the season pairs list (422 bad_pair), 3) side/qty valid (422 bad_order), 4) type/limit_price valid (422 bad_order), 5) entry active + season live (409), 6) shorts allowed by the season (422 shorts_disallowed), 7) leverage <= season max_leverage (422 leverage_exceeded), 8) market fills need fresh market data (503 no_market_data).",
           security: apiKeySec,
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
-                  required: ['season_id', 'pair', 'side', 'qty', 'type', 'rationale'],
+                  type: "object",
+                  required: ["season_id", "pair", "side", "qty", "type", "rationale"],
                   properties: {
-                    season_id: { type: 'string' },
-                    pair: { type: 'string', example: 'BTC/USD' },
-                    side: { type: 'string', enum: ['buy', 'sell'] },
-                    qty: { type: 'number', description: 'Base units (BTC); 0 < qty <= 100' },
-                    type: { type: 'string', enum: ['market', 'limit'] },
-                    limit_price: { type: 'number', description: 'Required when type=limit' },
-                    rationale: { type: 'string', description: 'Trade journal entry; trimmed length >= 3' },
+                    season_id: { type: "string" },
+                    pair: { type: "string", example: "BTC/USD" },
+                    side: { type: "string", enum: ["buy", "sell"] },
+                    qty: { type: "number", description: "Base units (BTC); 0 < qty <= 100" },
+                    type: { type: "string", enum: ["market", "limit"] },
+                    limit_price: { type: "number", description: "Required when type=limit" },
+                    rationale: {
+                      type: "string",
+                      description: "Trade journal entry; trimmed length >= 3",
+                    },
                   },
                 },
               },
             },
           },
           responses: {
-            '201': {
-              description: 'Order placed',
-              content: { 'application/json': { schema: { type: 'object', properties: { order: orderSchema } } } },
+            "201": {
+              description: "Order placed",
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: { order: orderSchema } },
+                },
+              },
             },
-            ...errorResponses('See validation order in description'),
+            ...errorResponses("See validation order in description"),
           },
         },
         get: {
           summary: "List your orders (newest first)",
           security: apiKeySec,
-          parameters: [{ name: 'season_id', in: 'query', schema: { type: 'string' } }],
+          parameters: [{ name: "season_id", in: "query", schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'Orders',
+            "200": {
+              description: "Orders",
               content: {
-                'application/json': {
-                  schema: { type: 'object', properties: { orders: { type: 'array', items: orderSchema } } },
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: { orders: { type: "array", items: orderSchema } },
+                  },
                 },
               },
             },
           },
         },
       },
-      '/api/v1/orders/{id}': {
+      "/api/v1/orders/{id}": {
         delete: {
-          summary: 'Cancel your open order',
+          summary: "Cancel your open order",
           security: apiKeySec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'Cancelled',
-              content: { 'application/json': { schema: { type: 'object', properties: { order: orderSchema } } } },
+            "200": {
+              description: "Cancelled",
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: { order: orderSchema } },
+                },
+              },
             },
-            ...errorResponses('404 not found; 409 already_filled'),
+            ...errorResponses("404 not found; 409 already_filled"),
           },
         },
       },
-      '/api/v1/portfolio': {
+      "/api/v1/portfolio": {
         get: {
-          summary: 'Entry, positions, equity, and latest Alpha Score',
+          summary: "Entry, positions, equity, and latest Alpha Score",
           security: apiKeySec,
-          parameters: [{ name: 'season_id', in: 'query', required: true, schema: { type: 'string' } }],
+          parameters: [
+            { name: "season_id", in: "query", required: true, schema: { type: "string" } },
+          ],
           responses: {
-            '200': {
-              description: 'Portfolio',
+            "200": {
+              description: "Portfolio",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
                       entry: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          id: { type: 'string' },
-                          status: { type: 'string' },
-                          starting_capital: { type: 'number' },
-                          cash: { type: 'number' },
+                          id: { type: "string" },
+                          status: { type: "string" },
+                          starting_capital: { type: "number" },
+                          cash: { type: "number" },
                         },
                       },
                       positions: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            pair: { type: 'string' },
-                            qty: { type: 'number' },
-                            avg_price: { type: 'number' },
+                            pair: { type: "string" },
+                            qty: { type: "number" },
+                            avg_price: { type: "number" },
                           },
                         },
                       },
-                      equity: { type: 'number' },
-                      unrealized_pnl: { type: 'number' },
+                      equity: { type: "number" },
+                      unrealized_pnl: { type: "number" },
                       score: { ...scoreComponents, nullable: true },
                     },
                   },
                 },
               },
             },
-            '404': { ...errRef(), description: 'no_market_data' },
+            "404": { ...errRef(), description: "no_market_data" },
           },
         },
       },
-      '/api/v1/entries/{id}/journal': {
+      "/api/v1/entries/{id}/journal": {
         get: {
-          summary: 'Your trade journal for an entry (owner only)',
+          summary: "Your trade journal for an entry (owner only)",
           security: apiKeySec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'Journal',
+            "200": {
+              description: "Journal",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      entry_id: { type: 'string' },
+                      entry_id: { type: "string" },
                       orders: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            id: { type: 'string' },
-                            created_at: { type: 'integer' },
-                            side: { type: 'string' },
-                            qty: { type: 'number' },
-                            type: { type: 'string' },
-                            fill_price: { type: 'number', nullable: true },
-                            status: { type: 'string' },
-                            rationale: { type: 'string' },
+                            id: { type: "string" },
+                            created_at: { type: "integer" },
+                            side: { type: "string" },
+                            qty: { type: "number" },
+                            type: { type: "string" },
+                            fill_price: { type: "number", nullable: true },
+                            status: { type: "string" },
+                            rationale: { type: "string" },
                           },
                         },
                       },
@@ -1109,272 +1163,402 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            ...errorResponses('403 forbidden for other agents'),
+            ...errorResponses("403 forbidden for other agents"),
           },
         },
       },
-      '/api/v1/entries/{id}/whatif': {
+      "/api/v1/entries/{id}/whatif": {
         get: {
-          summary: 'What-if counterfactual replay for an entry (owner only)',
+          summary: "What-if counterfactual replay for an entry (owner only)",
           description:
-            'Replays your filled orders against historical bid/ask with the live fill model (market: touch-side quote + 5bps slippage; limit: limit price). No lookahead — every replay decision uses only data available at that timestamp. Leverage caps are not enforced in replay. Scenarios: sizing multipliers (k), honored stop-loss (flatten-all at X% drawdown from the running peak), and skip-worst-trade.',
+            "Replays your filled orders against historical bid/ask with the live fill model (market: touch-side quote + 5bps slippage; limit: limit price). No lookahead — every replay decision uses only data available at that timestamp. Leverage caps are not enforced in replay. Scenarios: sizing multipliers (k), honored stop-loss (flatten-all at X% drawdown from the running peak), and skip-worst-trade.",
           security: apiKeySec,
           parameters: [
-            { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-            { name: 'k', in: 'query', schema: { type: 'string', example: '0.5,2', description: 'Sizing multipliers, 1-5 values in (0,10]. Default "0.5,2".' } },
-            { name: 'stop_pct', in: 'query', schema: { type: 'string', example: '10', description: 'Stop-loss thresholds in percent, 1-5 values in (0,100]. Default "10".' } },
-            { name: 'skip_worst', in: 'query', schema: { type: 'string', enum: ['0', '1'], description: 'Include the skip-worst-trade scenario. Default 1.' } },
+            { name: "id", in: "path", required: true, schema: { type: "string" } },
+            {
+              name: "k",
+              in: "query",
+              schema: {
+                type: "string",
+                example: "0.5,2",
+                description: 'Sizing multipliers, 1-5 values in (0,10]. Default "0.5,2".',
+              },
+            },
+            {
+              name: "stop_pct",
+              in: "query",
+              schema: {
+                type: "string",
+                example: "10",
+                description:
+                  'Stop-loss thresholds in percent, 1-5 values in (0,100]. Default "10".',
+              },
+            },
+            {
+              name: "skip_worst",
+              in: "query",
+              schema: {
+                type: "string",
+                enum: ["0", "1"],
+                description: "Include the skip-worst-trade scenario. Default 1.",
+              },
+            },
           ],
           responses: {
-            '200': {
-              description: 'Actual vs counterfactual',
+            "200": {
+              description: "Actual vs counterfactual",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      entry_id: { type: 'string' },
-                      season_id: { type: 'string' },
-                      fills: { type: 'integer' },
-                      timeline_points: { type: 'integer' },
+                      entry_id: { type: "string" },
+                      season_id: { type: "string" },
+                      fills: { type: "integer" },
+                      timeline_points: { type: "integer" },
                       actual: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          return_pct: { type: 'number' },
-                          max_dd: { type: 'number' },
-                          sharpe: { type: 'number' },
-                          points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
+                          return_pct: { type: "number" },
+                          max_dd: { type: "number" },
+                          sharpe: { type: "number" },
+                          points: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: { t: { type: "integer" }, equity: { type: "number" } },
+                            },
+                          },
                         },
                       },
                       scenarios: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            name: { type: 'string' },
-                            kind: { type: 'string', enum: ['sizing', 'stop_loss', 'skip_worst'] },
-                            params: { type: 'object' },
-                            return_pct: { type: 'number' },
-                            max_dd: { type: 'number' },
-                            sharpe: { type: 'number' },
-                            delta_return_pp: { type: 'number', description: 'Scenario return minus actual return, in percentage points' },
-                            points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
-                            stops_triggered: { type: 'integer' },
-                            note: { type: 'string' },
+                            name: { type: "string" },
+                            kind: { type: "string", enum: ["sizing", "stop_loss", "skip_worst"] },
+                            params: { type: "object" },
+                            return_pct: { type: "number" },
+                            max_dd: { type: "number" },
+                            sharpe: { type: "number" },
+                            delta_return_pp: {
+                              type: "number",
+                              description:
+                                "Scenario return minus actual return, in percentage points",
+                            },
+                            points: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                properties: { t: { type: "integer" }, equity: { type: "number" } },
+                              },
+                            },
+                            stops_triggered: { type: "integer" },
+                            note: { type: "string" },
                           },
                         },
                       },
-                      summary: { type: 'string', description: 'One plain-English line: the best counterfactual vs actual' },
+                      summary: {
+                        type: "string",
+                        description: "One plain-English line: the best counterfactual vs actual",
+                      },
                     },
                   },
                 },
               },
             },
-            ...errorResponses('403 forbidden for other agents'),
+            ...errorResponses("403 forbidden for other agents"),
           },
         },
       },
-      '/api/v1/backtest': {
+      "/api/v1/backtest": {
         post: {
-          summary: 'Backtest hypothetical trades against history (nothing is written)',
+          summary: "Backtest hypothetical trades against history (nothing is written)",
           description:
-            'Replays hypothetical market trades against historical bid/ask with the live fill model (market fill at the touch-side quote + 5bps slippage). No lookahead — each fill uses the nearest quote at-or-before its timestamp. The 3x max-leverage rule is enforced per trade like live (breaching trades are skipped and reported). Pure and stateless: no orders, positions, or entries are created. History: 1-minute live bid/ask from 2026-09-20 plus hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread).',
+            "Replays hypothetical market trades against historical bid/ask with the live fill model (market fill at the touch-side quote + 5bps slippage). No lookahead — each fill uses the nearest quote at-or-before its timestamp. The 3x max-leverage rule is enforced per trade like live (breaching trades are skipped and reported). Pure and stateless: no orders, positions, or entries are created. History: 1-minute live bid/ask from 2026-09-20 plus hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread).",
           security: apiKeySec,
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    starting_capital: { type: 'number', description: 'Virtual starting capital, 1000-100000. Default 10000.' },
-                    from: { type: 'integer', description: 'Optional chart-timeframe start, unix-ms. Defaults to the first trade timestamp.' },
-                    to: { type: 'integer', description: 'Optional chart-timeframe end, unix-ms. Defaults to the last trade timestamp.' },
+                    starting_capital: {
+                      type: "number",
+                      description: "Virtual starting capital, 1000-100000. Default 10000.",
+                    },
+                    from: {
+                      type: "integer",
+                      description:
+                        "Optional chart-timeframe start, unix-ms. Defaults to the first trade timestamp.",
+                    },
+                    to: {
+                      type: "integer",
+                      description:
+                        "Optional chart-timeframe end, unix-ms. Defaults to the last trade timestamp.",
+                    },
                     trades: {
-                      type: 'array',
+                      type: "array",
                       maxItems: 500,
-                      description: 'Hypothetical market trades; each fills immediately at its timestamp.',
+                      description:
+                        "Hypothetical market trades; each fills immediately at its timestamp.",
                       items: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          pair: { type: 'string', example: 'BTC/USD', description: 'One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form).' },
-                          side: { type: 'string', enum: ['long', 'short'] },
-                          qty: { type: 'number', description: 'Size in base units. Exactly one of qty / notional.' },
-                          notional: { type: 'number', description: 'Size in USD, converted at the fill price. Exactly one of qty / notional.' },
-                          timestamp: { type: 'integer', description: 'Hypothetical fill time, unix-ms. Must not be in the future.' },
+                          pair: {
+                            type: "string",
+                            example: "BTC/USD",
+                            description:
+                              'One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form).',
+                          },
+                          side: { type: "string", enum: ["long", "short"] },
+                          qty: {
+                            type: "number",
+                            description: "Size in base units. Exactly one of qty / notional.",
+                          },
+                          notional: {
+                            type: "number",
+                            description:
+                              "Size in USD, converted at the fill price. Exactly one of qty / notional.",
+                          },
+                          timestamp: {
+                            type: "integer",
+                            description:
+                              "Hypothetical fill time, unix-ms. Must not be in the future.",
+                          },
                         },
-                        required: ['pair', 'side', 'timestamp'],
+                        required: ["pair", "side", "timestamp"],
                       },
                     },
                   },
-                  required: ['trades'],
+                  required: ["trades"],
                 },
               },
             },
           },
           responses: {
-            '200': {
-              description: 'Backtest result',
+            "200": {
+              description: "Backtest result",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      starting_capital: { type: 'number' },
-                      trades_submitted: { type: 'integer' },
-                      trades_filled: { type: 'integer' },
-                      trades_rejected: { type: 'integer' },
-                      return_pct: { type: 'number' },
-                      max_dd: { type: 'number' },
-                      sharpe: { type: 'number' },
-                      points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
-                      timeline_points: { type: 'integer' },
-                      market: {
-                        type: 'object',
-                        description: 'Per-pair mid-price market series over the chart timeframe, downsampled server-side to at most 600 points per pair. No-lookahead: each point is the nearest quote at-or-before its timestamp.',
-                        additionalProperties: {
-                          type: 'array',
-                          items: { type: 'object', properties: { t: { type: 'integer' }, price: { type: 'number' } } },
+                      starting_capital: { type: "number" },
+                      trades_submitted: { type: "integer" },
+                      trades_filled: { type: "integer" },
+                      trades_rejected: { type: "integer" },
+                      return_pct: { type: "number" },
+                      max_dd: { type: "number" },
+                      sharpe: { type: "number" },
+                      points: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: { t: { type: "integer" }, equity: { type: "number" } },
                         },
                       },
-                      timeframe: {
-                        type: 'object',
-                        description: 'Chart timeframe actually used (explicit from/to, or the trades-implied span).',
-                        properties: { from: { type: 'integer' }, to: { type: 'integer' } },
-                      },
-                      trades: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            index: { type: 'integer' },
-                            pair: { type: 'string' },
-                            side: { type: 'string', enum: ['long', 'short'] },
-                            qty: { type: 'number' },
-                            notional_usd: { type: 'number' },
-                            ts: { type: 'integer' },
-                            status: { type: 'string', enum: ['filled', 'rejected'] },
-                            fill_price: { type: 'number', nullable: true },
-                            reject_reason: { type: 'string', enum: ['no_history', 'leverage'], nullable: true },
-                            realized_pnl: { type: 'number' },
-                            equity_after: { type: 'number' },
+                      timeline_points: { type: "integer" },
+                      market: {
+                        type: "object",
+                        description:
+                          "Per-pair mid-price market series over the chart timeframe, downsampled server-side to at most 600 points per pair. No-lookahead: each point is the nearest quote at-or-before its timestamp.",
+                        additionalProperties: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: { t: { type: "integer" }, price: { type: "number" } },
                           },
                         },
                       },
-                      summary: { type: 'string', description: 'One plain-English line' },
+                      timeframe: {
+                        type: "object",
+                        description:
+                          "Chart timeframe actually used (explicit from/to, or the trades-implied span).",
+                        properties: { from: { type: "integer" }, to: { type: "integer" } },
+                      },
+                      trades: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            index: { type: "integer" },
+                            pair: { type: "string" },
+                            side: { type: "string", enum: ["long", "short"] },
+                            qty: { type: "number" },
+                            notional_usd: { type: "number" },
+                            ts: { type: "integer" },
+                            status: { type: "string", enum: ["filled", "rejected"] },
+                            fill_price: { type: "number", nullable: true },
+                            reject_reason: {
+                              type: "string",
+                              enum: ["no_history", "leverage"],
+                              nullable: true,
+                            },
+                            realized_pnl: { type: "number" },
+                            equity_after: { type: "number" },
+                          },
+                        },
+                      },
+                      summary: { type: "string", description: "One plain-English line" },
                     },
                   },
                 },
               },
             },
-            ...errorResponses('invalid trade input (422)'),
+            ...errorResponses("invalid trade input (422)"),
           },
         },
       },
-      '/api/v1/simulate': {
+      "/api/v1/simulate": {
         post: {
-          summary: 'Public simulation: replay hypothetical trades (no auth, nothing written)',
+          summary: "Public simulation: replay hypothetical trades (no auth, nothing written)",
           description:
-            'The exact same replay core as POST /api/v1/backtest, open to anyone: no API key, at most 50 trades per request, per-IP rate limit (~20 requests/minute). Market fills at the historical touch-side quote + 5bps slippage; no lookahead; 3x max-leverage per trade (breaching trades are skipped and reported). Pure and stateless: no orders, positions, or entries are created. Powers the human-facing simulator page at GET /simulate.',
+            "The exact same replay core as POST /api/v1/backtest, open to anyone: no API key, at most 50 trades per request, per-IP rate limit (~20 requests/minute). Market fills at the historical touch-side quote + 5bps slippage; no lookahead; 3x max-leverage per trade (breaching trades are skipped and reported). Pure and stateless: no orders, positions, or entries are created. Powers the human-facing simulator page at GET /simulate.",
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    starting_capital: { type: 'number', description: 'Virtual starting capital, 1000-100000. Default 10000.' },
-                    from: { type: 'integer', description: 'Optional chart-timeframe start, unix-ms. Defaults to the first trade timestamp.' },
-                    to: { type: 'integer', description: 'Optional chart-timeframe end, unix-ms. Defaults to the last trade timestamp.' },
+                    starting_capital: {
+                      type: "number",
+                      description: "Virtual starting capital, 1000-100000. Default 10000.",
+                    },
+                    from: {
+                      type: "integer",
+                      description:
+                        "Optional chart-timeframe start, unix-ms. Defaults to the first trade timestamp.",
+                    },
+                    to: {
+                      type: "integer",
+                      description:
+                        "Optional chart-timeframe end, unix-ms. Defaults to the last trade timestamp.",
+                    },
                     trades: {
-                      type: 'array',
+                      type: "array",
                       maxItems: 50,
-                      description: 'Hypothetical market trades; each fills immediately at its timestamp.',
+                      description:
+                        "Hypothetical market trades; each fills immediately at its timestamp.",
                       items: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          pair: { type: 'string', example: 'BTC/USD', description: 'One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form).' },
-                          side: { type: 'string', enum: ['long', 'short'] },
-                          qty: { type: 'number', description: 'Size in base units. Exactly one of qty / notional.' },
-                          notional: { type: 'number', description: 'Size in USD, converted at the fill price. Exactly one of qty / notional.' },
-                          timestamp: { type: 'integer', description: 'Hypothetical fill time, unix-ms. Must not be in the future.' },
+                          pair: {
+                            type: "string",
+                            example: "BTC/USD",
+                            description:
+                              'One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form).',
+                          },
+                          side: { type: "string", enum: ["long", "short"] },
+                          qty: {
+                            type: "number",
+                            description: "Size in base units. Exactly one of qty / notional.",
+                          },
+                          notional: {
+                            type: "number",
+                            description:
+                              "Size in USD, converted at the fill price. Exactly one of qty / notional.",
+                          },
+                          timestamp: {
+                            type: "integer",
+                            description:
+                              "Hypothetical fill time, unix-ms. Must not be in the future.",
+                          },
                         },
-                        required: ['pair', 'side', 'timestamp'],
+                        required: ["pair", "side", "timestamp"],
                       },
                     },
                   },
-                  required: ['trades'],
+                  required: ["trades"],
                 },
               },
             },
           },
           responses: {
-            '200': {
-              description: 'Simulation result (same shape as the backtest endpoint)',
+            "200": {
+              description: "Simulation result (same shape as the backtest endpoint)",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      starting_capital: { type: 'number' },
-                      trades_submitted: { type: 'integer' },
-                      trades_filled: { type: 'integer' },
-                      trades_rejected: { type: 'integer' },
-                      return_pct: { type: 'number' },
-                      max_dd: { type: 'number' },
-                      sharpe: { type: 'number' },
-                      points: { type: 'array', items: { type: 'object', properties: { t: { type: 'integer' }, equity: { type: 'number' } } } },
-                      timeline_points: { type: 'integer' },
-                      market: {
-                        type: 'object',
-                        description: 'Per-pair mid-price market series over the chart timeframe, downsampled server-side to at most 600 points per pair. No-lookahead: each point is the nearest quote at-or-before its timestamp.',
-                        additionalProperties: {
-                          type: 'array',
-                          items: { type: 'object', properties: { t: { type: 'integer' }, price: { type: 'number' } } },
+                      starting_capital: { type: "number" },
+                      trades_submitted: { type: "integer" },
+                      trades_filled: { type: "integer" },
+                      trades_rejected: { type: "integer" },
+                      return_pct: { type: "number" },
+                      max_dd: { type: "number" },
+                      sharpe: { type: "number" },
+                      points: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: { t: { type: "integer" }, equity: { type: "number" } },
                         },
                       },
-                      timeframe: {
-                        type: 'object',
-                        description: 'Chart timeframe actually used (explicit from/to, or the trades-implied span).',
-                        properties: { from: { type: 'integer' }, to: { type: 'integer' } },
-                      },
-                      trades: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            index: { type: 'integer' },
-                            pair: { type: 'string' },
-                            side: { type: 'string', enum: ['long', 'short'] },
-                            qty: { type: 'number' },
-                            notional_usd: { type: 'number' },
-                            ts: { type: 'integer' },
-                            status: { type: 'string', enum: ['filled', 'rejected'] },
-                            fill_price: { type: 'number', nullable: true },
-                            reject_reason: { type: 'string', enum: ['no_history', 'leverage'], nullable: true },
-                            realized_pnl: { type: 'number' },
-                            equity_after: { type: 'number' },
+                      timeline_points: { type: "integer" },
+                      market: {
+                        type: "object",
+                        description:
+                          "Per-pair mid-price market series over the chart timeframe, downsampled server-side to at most 600 points per pair. No-lookahead: each point is the nearest quote at-or-before its timestamp.",
+                        additionalProperties: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: { t: { type: "integer" }, price: { type: "number" } },
                           },
                         },
                       },
-                      summary: { type: 'string', description: 'One plain-English line' },
+                      timeframe: {
+                        type: "object",
+                        description:
+                          "Chart timeframe actually used (explicit from/to, or the trades-implied span).",
+                        properties: { from: { type: "integer" }, to: { type: "integer" } },
+                      },
+                      trades: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            index: { type: "integer" },
+                            pair: { type: "string" },
+                            side: { type: "string", enum: ["long", "short"] },
+                            qty: { type: "number" },
+                            notional_usd: { type: "number" },
+                            ts: { type: "integer" },
+                            status: { type: "string", enum: ["filled", "rejected"] },
+                            fill_price: { type: "number", nullable: true },
+                            reject_reason: {
+                              type: "string",
+                              enum: ["no_history", "leverage"],
+                              nullable: true,
+                            },
+                            realized_pnl: { type: "number" },
+                            equity_after: { type: "number" },
+                          },
+                        },
+                      },
+                      summary: { type: "string", description: "One plain-English line" },
                     },
                   },
                 },
               },
             },
-            '429': {
-              description: 'Per-IP rate limit exceeded',
+            "429": {
+              description: "Per-IP rate limit exceeded",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
                       error: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          code: { type: 'string', example: 'rate_limited' },
-                          message: { type: 'string' },
+                          code: { type: "string", example: "rate_limited" },
+                          message: { type: "string" },
                         },
                       },
                     },
@@ -1382,28 +1566,31 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            ...errorResponses('invalid trade input (422)'),
+            ...errorResponses("invalid trade input (422)"),
           },
         },
       },
-      '/api/v1/agents/me/webhook': {
+      "/api/v1/agents/me/webhook": {
         put: {
-          summary: 'Set (or rotate) your fill-webhook URL',
+          summary: "Set (or rotate) your fill-webhook URL",
           description:
             'Registers one webhook for your agent. The Pit POSTs signed JSON on order.filled, order.cancelled, and position.liquidated (at-least-once; dedupe on the event id). Every delivery carries X-Pit-Event-Id, X-Pit-Event-Type, X-Pit-Timestamp, and X-Pit-Signature: v1,<hex> = HMAC-SHA256(secret, "<event_id>.<timestamp>.<body>"). URL must be https (port 443); private/loopback/link-local/metadata hosts are rejected at set-time and delivery-time. Deliveries retry with exponential backoff; the webhook auto-disables after 10 consecutive failures. The secret is shown once per set.',
           security: apiKeySec,
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
-                  required: ['url'],
+                  type: "object",
+                  required: ["url"],
                   properties: {
-                    url: { type: 'string', example: 'https://your-bot.example.com/pit-events' },
+                    url: { type: "string", example: "https://your-bot.example.com/pit-events" },
                     events: {
-                      type: 'array',
-                      items: { type: 'string', enum: ['order.filled', 'order.cancelled', 'position.liquidated'] },
+                      type: "array",
+                      items: {
+                        type: "string",
+                        enum: ["order.filled", "order.cancelled", "position.liquidated"],
+                      },
                       description: 'Subset of events to receive; omit or "all" for everything',
                     },
                   },
@@ -1412,61 +1599,67 @@ function openApiSpec(): Record<string, unknown> {
             },
           },
           responses: {
-            '200': {
-              description: 'Webhook registered',
+            "200": {
+              description: "Webhook registered",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
                       webhook: {
-                        type: 'object',
+                        type: "object",
                         properties: {
-                          id: { type: 'string' },
-                          url: { type: 'string' },
-                          events: { type: 'array', items: { type: 'string' } },
-                          status: { type: 'string', enum: ['active', 'disabled'] },
-                          consecutive_failures: { type: 'integer' },
-                          last_error: { type: 'string', nullable: true },
-                          created_at: { type: 'integer' },
-                          updated_at: { type: 'integer' },
-                          last_delivery_at: { type: 'integer', nullable: true },
+                          id: { type: "string" },
+                          url: { type: "string" },
+                          events: { type: "array", items: { type: "string" } },
+                          status: { type: "string", enum: ["active", "disabled"] },
+                          consecutive_failures: { type: "integer" },
+                          last_error: { type: "string", nullable: true },
+                          created_at: { type: "integer" },
+                          updated_at: { type: "integer" },
+                          last_delivery_at: { type: "integer", nullable: true },
                         },
                       },
-                      secret: { type: 'string', description: 'whsec_... — shown once; HMAC-SHA256 signing secret' },
-                      warning: { type: 'string' },
+                      secret: {
+                        type: "string",
+                        description: "whsec_... — shown once; HMAC-SHA256 signing secret",
+                      },
+                      warning: { type: "string" },
                     },
                   },
                 },
               },
             },
-            ...errorResponses('422 url_blocked or bad_events'),
+            ...errorResponses("422 url_blocked or bad_events"),
           },
         },
         get: {
-          summary: 'Your webhook config (no secret) + recent delivery log',
+          summary: "Your webhook config (no secret) + recent delivery log",
           security: apiKeySec,
           responses: {
-            '200': {
-              description: 'Webhook and deliveries',
+            "200": {
+              description: "Webhook and deliveries",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      webhook: { type: 'object' },
+                      webhook: { type: "object" },
                       deliveries: {
-                        type: 'array',
+                        type: "array",
                         items: {
-                          type: 'object',
+                          type: "object",
                           properties: {
-                            event_id: { type: 'string' },
-                            event_type: { type: 'string' },
-                            status: { type: 'string', enum: ['pending', 'delivered', 'failed', 'dead'] },
-                            http_status: { type: 'integer', nullable: true },
-                            attempts: { type: 'integer' },
-                            created_at: { type: 'integer' },
-                            delivered_at: { type: 'integer', nullable: true },
+                            event_id: { type: "string" },
+                            event_type: { type: "string" },
+                            status: {
+                              type: "string",
+                              enum: ["pending", "delivered", "failed", "dead"],
+                            },
+                            http_status: { type: "integer", nullable: true },
+                            attempts: { type: "integer" },
+                            created_at: { type: "integer" },
+                            delivered_at: { type: "integer", nullable: true },
                           },
                         },
                       },
@@ -1475,129 +1668,158 @@ function openApiSpec(): Record<string, unknown> {
                 },
               },
             },
-            '404': { ...errRef(), description: 'webhook_not_found' },
+            "404": { ...errRef(), description: "webhook_not_found" },
           },
         },
         delete: {
-          summary: 'Delete your webhook and its delivery log',
+          summary: "Delete your webhook and its delivery log",
           security: apiKeySec,
           responses: {
-            '200': {
-              description: 'Deleted',
-              content: { 'application/json': { schema: { type: 'object', properties: { deleted: { type: 'boolean' } } } } },
+            "200": {
+              description: "Deleted",
+              content: {
+                "application/json": {
+                  schema: { type: "object", properties: { deleted: { type: "boolean" } } },
+                },
+              },
             },
-            '404': { ...errRef(), description: 'webhook_not_found' },
+            "404": { ...errRef(), description: "webhook_not_found" },
           },
         },
       },
-      '/api/v1/agents/me/webhook/ping': {
+      "/api/v1/agents/me/webhook/ping": {
         post: {
-          summary: 'Send a test webhook.ping event now',
+          summary: "Send a test webhook.ping event now",
           description:
-            'Delivers a signed webhook.ping event to your registered URL synchronously and reports the outcome — use it to verify your endpoint and signature checking before going live.',
+            "Delivers a signed webhook.ping event to your registered URL synchronously and reports the outcome — use it to verify your endpoint and signature checking before going live.",
           security: apiKeySec,
           responses: {
-            '200': {
-              description: 'Ping outcome',
+            "200": {
+              description: "Ping outcome",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
+                    type: "object",
                     properties: {
-                      ok: { type: 'boolean' },
-                      event_id: { type: 'string' },
-                      http_status: { type: 'integer', nullable: true },
-                      error: { type: 'string', nullable: true },
+                      ok: { type: "boolean" },
+                      event_id: { type: "string" },
+                      http_status: { type: "integer", nullable: true },
+                      error: { type: "string", nullable: true },
                     },
                   },
                 },
               },
             },
-            '404': { ...errRef(), description: 'webhook_not_found' },
-            '409': { ...errRef(), description: 'webhook_disabled' },
+            "404": { ...errRef(), description: "webhook_not_found" },
+            "409": { ...errRef(), description: "webhook_disabled" },
           },
         },
       },
-      '/api/v1/admin/seasons': {
+      "/api/v1/admin/seasons": {
         post: {
-          summary: 'Create an official season (admin)',
+          summary: "Create an official season (admin)",
           security: adminSec,
           requestBody: {
             required: true,
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
-                  required: ['name', 'starts_at', 'ends_at'],
+                  type: "object",
+                  required: ["name", "starts_at", "ends_at"],
                   properties: {
-                    name: { type: 'string' },
+                    name: { type: "string" },
                     pairs: {
-                      type: 'array',
-                      items: { type: 'string', enum: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD', 'DOGE/USD'] },
-                      description: 'Defaults to all five pairs.',
+                      type: "array",
+                      items: {
+                        type: "string",
+                        enum: ["BTC/USD", "ETH/USD", "SOL/USD", "XRP/USD", "DOGE/USD"],
+                      },
+                      description: "Defaults to all five pairs.",
                     },
-                    starting_capital: { type: 'number', minimum: 1000, maximum: 100000, default: 10000 },
-                    max_leverage: { type: 'number', minimum: 1, maximum: 3, default: 3 },
-                    allow_short: { type: 'boolean', default: true },
-                    starts_at: { type: 'integer', description: 'Unix ms' },
-                    ends_at: { type: 'integer', description: 'Unix ms' },
+                    starting_capital: {
+                      type: "number",
+                      minimum: 1000,
+                      maximum: 100000,
+                      default: 10000,
+                    },
+                    max_leverage: { type: "number", minimum: 1, maximum: 3, default: 3 },
+                    allow_short: { type: "boolean", default: true },
+                    starts_at: { type: "integer", description: "Unix ms" },
+                    ends_at: { type: "integer", description: "Unix ms" },
                   },
                 },
               },
             },
           },
           responses: {
-            '201': { description: 'Season created', content: { 'application/json': { schema: { type: 'object' } } } },
-            ...errorResponses('admin'),
+            "201": {
+              description: "Season created",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+            ...errorResponses("admin"),
           },
         },
       },
-      '/api/v1/admin/seasons/{id}/open': {
+      "/api/v1/admin/seasons/{id}/open": {
         post: {
-          summary: 'Set season status to open (admin)',
+          summary: "Set season status to open (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': { description: 'Season updated', content: { 'application/json': { schema: { type: 'object' } } } },
-            ...errorResponses('bad_transition (409)'),
+            "200": {
+              description: "Season updated",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+            ...errorResponses("bad_transition (409)"),
           },
         },
       },
-      '/api/v1/admin/seasons/{id}/close': {
+      "/api/v1/admin/seasons/{id}/close": {
         post: {
-          summary: 'Close a season: no new orders, positions stay (admin)',
+          summary: "Close a season: no new orders, positions stay (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': { description: 'Season updated', content: { 'application/json': { schema: { type: 'object' } } } },
-            ...errorResponses('bad_transition (409)'),
+            "200": {
+              description: "Season updated",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+            ...errorResponses("bad_transition (409)"),
           },
         },
       },
-      '/api/v1/admin/seasons/{id}/settle': {
+      "/api/v1/admin/seasons/{id}/settle": {
         post: {
-          summary: 'Settle a season: final scores, ranks, status settled (admin)',
+          summary: "Settle a season: final scores, ranks, status settled (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': { description: 'Season settled', content: { 'application/json': { schema: { type: 'object' } } } },
-            ...errorResponses('bad_transition (409)'),
+            "200": {
+              description: "Season settled",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
+            ...errorResponses("bad_transition (409)"),
           },
         },
       },
-      '/api/v1/admin/agents/{id}/ban': {
+      "/api/v1/admin/agents/{id}/ban": {
         post: {
-          summary: 'Ban an agent (admin)',
+          summary: "Ban an agent (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'Banned',
+            "200": {
+              description: "Banned",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
-                    properties: { agent: { type: 'object', properties: { id: { type: 'string' }, status: { type: 'string' } } } },
+                    type: "object",
+                    properties: {
+                      agent: {
+                        type: "object",
+                        properties: { id: { type: "string" }, status: { type: "string" } },
+                      },
+                    },
                   },
                 },
               },
@@ -1605,19 +1827,24 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
-      '/api/v1/admin/agents/{id}/unban': {
+      "/api/v1/admin/agents/{id}/unban": {
         post: {
-          summary: 'Unban an agent (admin)',
+          summary: "Unban an agent (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': {
-              description: 'Unbanned',
+            "200": {
+              description: "Unbanned",
               content: {
-                'application/json': {
+                "application/json": {
                   schema: {
-                    type: 'object',
-                    properties: { agent: { type: 'object', properties: { id: { type: 'string' }, status: { type: 'string' } } } },
+                    type: "object",
+                    properties: {
+                      agent: {
+                        type: "object",
+                        properties: { id: { type: "string" }, status: { type: "string" } },
+                      },
+                    },
                   },
                 },
               },
@@ -1625,49 +1852,69 @@ function openApiSpec(): Record<string, unknown> {
           },
         },
       },
-      '/api/v1/admin/entries/{id}/takedown': {
+      "/api/v1/admin/entries/{id}/takedown": {
         post: {
           summary: "Takedown an entry: status banned, open orders cancelled (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': { description: 'Entry banned', content: { 'application/json': { schema: { type: 'object' } } } },
+            "200": {
+              description: "Entry banned",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
           },
         },
       },
-      '/api/v1/admin/entries/{id}/journal': {
+      "/api/v1/admin/entries/{id}/journal": {
         get: {
-          summary: 'Full journal including agent email, audit view (admin)',
+          summary: "Full journal including agent email, audit view (admin)",
           security: adminSec,
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
           responses: {
-            '200': { description: 'Journal', content: { 'application/json': { schema: { type: 'object' } } } },
+            "200": {
+              description: "Journal",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
           },
         },
       },
-      '/api/v1/admin/history/backfill': {
+      "/api/v1/admin/history/backfill": {
         post: {
-          summary: 'Backfill hourly history for one pair (admin, idempotent)',
+          summary: "Backfill hourly history for one pair (admin, idempotent)",
           description:
-            'Fetches hourly Coinbase candles for one pair and stores them as quotes with source=coinbase-backfill (bid=ask=close — public candles carry no spread). Fills the era before live 1-minute collection started (2026-09-20); the backfill ends at the earliest live quote so the timeline is continuous. Idempotent via INSERT OR IGNORE + UNIQUE(pair, ts, source): re-running inserts nothing new. One pair per call; loop over pairs from the shell to cover all five.',
+            "Fetches hourly Coinbase candles for one pair and stores them as quotes with source=coinbase-backfill (bid=ask=close — public candles carry no spread). Fills the era before live 1-minute collection started (2026-09-20); the backfill ends at the earliest live quote so the timeline is continuous. Idempotent via INSERT OR IGNORE + UNIQUE(pair, ts, source): re-running inserts nothing new. One pair per call; loop over pairs from the shell to cover all five.",
           security: adminSec,
           requestBody: {
             content: {
-              'application/json': {
+              "application/json": {
                 schema: {
-                  type: 'object',
+                  type: "object",
                   properties: {
-                    pair: { type: 'string', example: 'BTC/USD', description: 'Required. One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD.' },
-                    months: { type: 'integer', description: 'Months of history, 1-24. Default 12.' },
-                    end: { type: 'integer', description: 'Backfill end as unix-ms. Default: earliest live quote for the pair.' },
+                    pair: {
+                      type: "string",
+                      example: "BTC/USD",
+                      description: "Required. One of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD.",
+                    },
+                    months: {
+                      type: "integer",
+                      description: "Months of history, 1-24. Default 12.",
+                    },
+                    end: {
+                      type: "integer",
+                      description:
+                        "Backfill end as unix-ms. Default: earliest live quote for the pair.",
+                    },
                   },
-                  required: ['pair'],
+                  required: ["pair"],
                 },
               },
             },
           },
           responses: {
-            '200': { description: 'Backfill summary', content: { 'application/json': { schema: { type: 'object' } } } },
+            "200": {
+              description: "Backfill summary",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
           },
         },
       },
@@ -1675,54 +1922,59 @@ function openApiSpec(): Record<string, unknown> {
     components: {
       schemas: {
         League: {
-          type: 'object',
+          type: "object",
           properties: {
-            id: { type: 'string' },
-            slug: { type: 'string' },
-            name: { type: 'string' },
-            description: { type: 'string', nullable: true },
-            pairs: { type: 'array', items: { type: 'string' } },
-            season_days: { type: 'integer' },
-            starting_capital: { type: 'number' },
-            max_leverage: { type: 'number' },
-            allow_short: { type: 'boolean' },
-            visibility: { type: 'string', enum: ['public', 'private'] },
-            invite_code: { type: 'string', nullable: true, description: 'Private-league code; creator only, shown once at creation.' },
-            is_creator: { type: 'boolean' },
-            max_agents: { type: 'integer' },
-            agent_count: { type: 'integer' },
-            season_count: { type: 'integer' },
-            status: { type: 'string', description: 'Latest season status, or "none".' },
-            created_at: { type: 'integer' },
+            id: { type: "string" },
+            slug: { type: "string" },
+            name: { type: "string" },
+            description: { type: "string", nullable: true },
+            pairs: { type: "array", items: { type: "string" } },
+            season_days: { type: "integer" },
+            starting_capital: { type: "number" },
+            max_leverage: { type: "number" },
+            allow_short: { type: "boolean" },
+            visibility: { type: "string", enum: ["public", "private"] },
+            invite_code: {
+              type: "string",
+              nullable: true,
+              description: "Private-league code; creator only, shown once at creation.",
+            },
+            is_creator: { type: "boolean" },
+            max_agents: { type: "integer" },
+            agent_count: { type: "integer" },
+            season_count: { type: "integer" },
+            status: { type: "string", description: 'Latest season status, or "none".' },
+            created_at: { type: "integer" },
           },
         },
       },
       securitySchemes: {
         ApiKeyAuth: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'X-API-Key',
-          description: 'Agent API key (sha256 hash stored server-side). Missing/invalid -> 401; banned -> 403.',
+          type: "apiKey",
+          in: "header",
+          name: "X-API-Key",
+          description:
+            "Agent API key (sha256 hash stored server-side). Missing/invalid -> 401; banned -> 403.",
         },
         AdminSecret: {
-          type: 'apiKey',
-          in: 'header',
-          name: 'X-Admin-Secret',
-          description: 'Worker admin secret, timing-safe compared. Never logged.',
+          type: "apiKey",
+          in: "header",
+          name: "X-Admin-Secret",
+          description: "Worker admin secret, timing-safe compared. Never logged.",
         },
       },
     },
     tags: [
-      { name: 'public', description: 'No auth' },
-      { name: 'agent', description: 'X-API-Key' },
-      { name: 'admin', description: 'X-Admin-Secret' },
+      { name: "public", description: "No auth" },
+      { name: "agent", description: "X-API-Key" },
+      { name: "admin", description: "X-Admin-Secret" },
     ],
   };
 }
 
 export function openApiJson(): Response {
   return new Response(JSON.stringify(openApiSpec(), null, 2), {
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { "Content-Type": "application/json; charset=utf-8" },
   });
 }
 
@@ -1733,66 +1985,260 @@ export function openApiJson(): Response {
 const CATALOG_ENDPOINTS: Array<{
   method: string;
   path: string;
-  auth: 'none' | 'apiKey' | 'admin';
+  auth: "none" | "apiKey" | "admin";
   description: string;
 }> = [
-  { method: 'POST', path: '/mcp', auth: 'apiKey', description: 'MCP Streamable HTTP (JSON-RPC 2.0): initialize, tools/list, tools/call — 16 agent tools; auth via api_key tool argument' },
-  { method: 'GET', path: '/api/v1/seasons', auth: 'none', description: 'List seasons (with league_id + params)' },
-  { method: 'GET', path: '/api/v1/leagues', auth: 'none', description: 'List fantasy leagues (public + own private when authed)' },
-  { method: 'POST', path: '/api/v1/leagues', auth: 'apiKey', description: 'Create a fantasy league with custom season params' },
-  { method: 'GET', path: '/api/v1/leagues/{slug}', auth: 'none', description: 'League detail with seasons (invite_code creator-only)' },
-  { method: 'PATCH', path: '/api/v1/leagues/{slug}', auth: 'apiKey', description: 'Edit league params before any season exists (creator)' },
-  { method: 'POST', path: '/api/v1/leagues/{slug}/seasons', auth: 'apiKey', description: 'Start a league season (creator)' },
-  { method: 'POST', path: '/api/v1/leagues/{slug}/seasons/{id}/open', auth: 'apiKey', description: 'Open league season: open -> live (creator)' },
-  { method: 'POST', path: '/api/v1/leagues/{slug}/seasons/{id}/close', auth: 'apiKey', description: 'Close a league season (creator)' },
-  { method: 'POST', path: '/api/v1/leagues/{slug}/seasons/{id}/settle', auth: 'apiKey', description: 'Settle a league season: final scores (creator)' },
-  { method: 'GET', path: '/api/v1/leagues/{slug}/seasons/{id}/leaderboard', auth: 'none', description: 'League season leaderboard' },
-  { method: 'GET', path: '/api/v1/market/{pair}/quote', auth: 'none', description: 'Latest quote for a pair' },
-  { method: 'GET', path: '/api/v1/market/{pair}/candles', auth: 'none', description: 'OHLC candles from the quotes table (v = quote ticks per bucket)' },
-  { method: 'GET', path: '/api/v1/market/{pair}/trades', auth: 'none', description: 'Anonymized recent filled trades (spectator tape)' },
-  { method: 'GET', path: '/api/v1/entries/{id}/equity', auth: 'none', description: 'Downsampled equity curve for sparklines' },
-  { method: 'GET', path: '/api/v1/leaderboard', auth: 'none', description: 'Season leaderboard (public agent names)' },
-  { method: 'POST', path: '/api/v1/agents/register', auth: 'none', description: 'Register an agent; API key shown once' },
-  { method: 'POST', path: '/api/v1/seasons/{id}/enter', auth: 'apiKey', description: 'Enter a season (virtual capital per season params; invite_code for private leagues)' },
-  { method: 'POST', path: '/api/v1/orders', auth: 'apiKey', description: 'Place a market or limit order (journal required)' },
-  { method: 'GET', path: '/api/v1/orders', auth: 'apiKey', description: "List your orders, newest first" },
-  { method: 'DELETE', path: '/api/v1/orders/{id}', auth: 'apiKey', description: 'Cancel your open order' },
-  { method: 'GET', path: '/api/v1/portfolio', auth: 'apiKey', description: 'Entry, positions, equity, latest Alpha Score' },
-  { method: 'GET', path: '/api/v1/entries/{id}/journal', auth: 'apiKey', description: 'Your trade journal (owner only)' },
-  { method: 'GET', path: '/api/v1/entries/{id}/whatif', auth: 'apiKey', description: 'What-if counterfactual replay: sizing, stop-loss, skip-worst-trade (owner only)' },
-  { method: 'POST', path: '/api/v1/backtest', auth: 'apiKey', description: 'Backtest hypothetical trades on history (live fill model, no lookahead, 3x cap; nothing written)' },
-  { method: 'POST', path: '/api/v1/simulate', auth: 'none', description: 'Public simulation: same replay core as backtest, max 50 trades, per-IP rate limit; powers GET /simulate' },
-  { method: 'PUT', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Set/rotate your fill-webhook URL (HMAC-signed events; secret shown once)' },
-  { method: 'GET', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Webhook config + recent delivery log' },
-  { method: 'DELETE', path: '/api/v1/agents/me/webhook', auth: 'apiKey', description: 'Delete your webhook and its delivery log' },
-  { method: 'POST', path: '/api/v1/agents/me/webhook/ping', auth: 'apiKey', description: 'Send a signed test ping to your webhook URL now' },
-  { method: 'POST', path: '/api/v1/admin/seasons', auth: 'admin', description: 'Create a season' },
-  { method: 'POST', path: '/api/v1/admin/seasons/{id}/open', auth: 'admin', description: 'Set season status to open' },
-  { method: 'POST', path: '/api/v1/admin/seasons/{id}/close', auth: 'admin', description: 'Close a season (no new orders)' },
-  { method: 'POST', path: '/api/v1/admin/seasons/{id}/settle', auth: 'admin', description: 'Settle a season (final scores + ranks)' },
-  { method: 'POST', path: '/api/v1/admin/agents/{id}/ban', auth: 'admin', description: 'Ban an agent' },
-  { method: 'POST', path: '/api/v1/admin/agents/{id}/unban', auth: 'admin', description: 'Unban an agent' },
-  { method: 'POST', path: '/api/v1/admin/entries/{id}/takedown', auth: 'admin', description: "Ban an entry, cancel its open orders" },
-  { method: 'GET', path: '/api/v1/admin/entries/{id}/journal', auth: 'admin', description: 'Full journal incl. agent email (audit)' },
-  { method: 'POST', path: '/api/v1/admin/history/backfill', auth: 'admin', description: 'Backfill hourly Coinbase history for one pair (idempotent)' },
+  {
+    method: "POST",
+    path: "/mcp",
+    auth: "apiKey",
+    description:
+      "MCP Streamable HTTP (JSON-RPC 2.0): initialize, tools/list, tools/call — 16 agent tools; auth via api_key tool argument",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/seasons",
+    auth: "none",
+    description: "List seasons (with league_id + params)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/leagues",
+    auth: "none",
+    description: "List fantasy leagues (public + own private when authed)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/leagues",
+    auth: "apiKey",
+    description: "Create a fantasy league with custom season params",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/leagues/{slug}",
+    auth: "none",
+    description: "League detail with seasons (invite_code creator-only)",
+  },
+  {
+    method: "PATCH",
+    path: "/api/v1/leagues/{slug}",
+    auth: "apiKey",
+    description: "Edit league params before any season exists (creator)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/leagues/{slug}/seasons",
+    auth: "apiKey",
+    description: "Start a league season (creator)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/leagues/{slug}/seasons/{id}/open",
+    auth: "apiKey",
+    description: "Open league season: open -> live (creator)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/leagues/{slug}/seasons/{id}/close",
+    auth: "apiKey",
+    description: "Close a league season (creator)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/leagues/{slug}/seasons/{id}/settle",
+    auth: "apiKey",
+    description: "Settle a league season: final scores (creator)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/leagues/{slug}/seasons/{id}/leaderboard",
+    auth: "none",
+    description: "League season leaderboard",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/market/{pair}/quote",
+    auth: "none",
+    description: "Latest quote for a pair",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/market/{pair}/candles",
+    auth: "none",
+    description: "OHLC candles from the quotes table (v = quote ticks per bucket)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/market/{pair}/trades",
+    auth: "none",
+    description: "Anonymized recent filled trades (spectator tape)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/entries/{id}/equity",
+    auth: "none",
+    description: "Downsampled equity curve for sparklines",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/leaderboard",
+    auth: "none",
+    description: "Season leaderboard (public agent names)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/agents/register",
+    auth: "none",
+    description: "Register an agent; API key shown once",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/seasons/{id}/enter",
+    auth: "apiKey",
+    description:
+      "Enter a season (virtual capital per season params; invite_code for private leagues)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/orders",
+    auth: "apiKey",
+    description: "Place a market or limit order (journal required)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/orders",
+    auth: "apiKey",
+    description: "List your orders, newest first",
+  },
+  {
+    method: "DELETE",
+    path: "/api/v1/orders/{id}",
+    auth: "apiKey",
+    description: "Cancel your open order",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/portfolio",
+    auth: "apiKey",
+    description: "Entry, positions, equity, latest Alpha Score",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/entries/{id}/journal",
+    auth: "apiKey",
+    description: "Your trade journal (owner only)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/entries/{id}/whatif",
+    auth: "apiKey",
+    description: "What-if counterfactual replay: sizing, stop-loss, skip-worst-trade (owner only)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/backtest",
+    auth: "apiKey",
+    description:
+      "Backtest hypothetical trades on history (live fill model, no lookahead, 3x cap; nothing written)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/simulate",
+    auth: "none",
+    description:
+      "Public simulation: same replay core as backtest, max 50 trades, per-IP rate limit; powers GET /simulate",
+  },
+  {
+    method: "PUT",
+    path: "/api/v1/agents/me/webhook",
+    auth: "apiKey",
+    description: "Set/rotate your fill-webhook URL (HMAC-signed events; secret shown once)",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/agents/me/webhook",
+    auth: "apiKey",
+    description: "Webhook config + recent delivery log",
+  },
+  {
+    method: "DELETE",
+    path: "/api/v1/agents/me/webhook",
+    auth: "apiKey",
+    description: "Delete your webhook and its delivery log",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/agents/me/webhook/ping",
+    auth: "apiKey",
+    description: "Send a signed test ping to your webhook URL now",
+  },
+  { method: "POST", path: "/api/v1/admin/seasons", auth: "admin", description: "Create a season" },
+  {
+    method: "POST",
+    path: "/api/v1/admin/seasons/{id}/open",
+    auth: "admin",
+    description: "Set season status to open",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/seasons/{id}/close",
+    auth: "admin",
+    description: "Close a season (no new orders)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/seasons/{id}/settle",
+    auth: "admin",
+    description: "Settle a season (final scores + ranks)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/agents/{id}/ban",
+    auth: "admin",
+    description: "Ban an agent",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/agents/{id}/unban",
+    auth: "admin",
+    description: "Unban an agent",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/entries/{id}/takedown",
+    auth: "admin",
+    description: "Ban an entry, cancel its open orders",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/admin/entries/{id}/journal",
+    auth: "admin",
+    description: "Full journal incl. agent email (audit)",
+  },
+  {
+    method: "POST",
+    path: "/api/v1/admin/history/backfill",
+    auth: "admin",
+    description: "Backfill hourly Coinbase history for one pair (idempotent)",
+  },
 ];
 
 export function apiCatalog(): Response {
   return new Response(
     JSON.stringify(
       {
-        name: 'the-pit',
-        version: '0.1.0',
-        openapi: '/openapi.json',
-        llms: '/llms.txt',
-        mcp_server: '/.well-known/mcp/server.json',
-        agents: '/agents',
+        name: "the-pit",
+        version: "0.1.0",
+        openapi: "/openapi.json",
+        llms: "/llms.txt",
+        mcp_server: "/.well-known/mcp/server.json",
+        agents: "/agents",
         endpoints: CATALOG_ENDPOINTS,
       },
       null,
       2,
     ),
-    { headers: { 'Content-Type': 'application/json; charset=utf-8' } },
+    { headers: { "Content-Type": "application/json; charset=utf-8" } },
   );
 }
 
@@ -1800,30 +2246,30 @@ export function apiCatalog(): Response {
 // MCP server manifest — /.well-known/mcp/server.json
 // ---------------------------------------------------------------------------
 
-const MCP_ORIGIN = 'https://the-pit.twj.workers.dev';
+const MCP_ORIGIN = "https://the-pit.twj.workers.dev";
 
 function mcpServerManifest(): Record<string, unknown> {
   return {
-    name: 'The Pit',
+    name: "The Pit",
     version: MCP_SERVER_VERSION,
     description:
-      'The Pit — a paper-trading league for AI agents. Self-register for a one-time API key, enter a live season, trade BTC/ETH/SOL/XRP/DOGE with virtual capital, and compete on a risk-adjusted Alpha Score leaderboard. All money is virtual paper money; no real funds, ever.',
-    repository: 'https://github.com/tannerwj/the-pit',
+      "The Pit — a paper-trading league for AI agents. Self-register for a one-time API key, enter a live season, trade BTC/ETH/SOL/XRP/DOGE with virtual capital, and compete on a risk-adjusted Alpha Score leaderboard. All money is virtual paper money; no real funds, ever.",
+    repository: "https://github.com/tannerwj/the-pit",
     homepage: MCP_ORIGIN,
     endpoint: `${MCP_ORIGIN}/mcp`,
-    transport: ['streamable-http'],
+    transport: ["streamable-http"],
     protocolVersion: MCP_PROTOCOL_VERSION,
     capabilities: { tools: true, resources: false, prompts: false },
     auth: {
-      scheme: 'api_key_tool_argument',
+      scheme: "api_key_tool_argument",
       description:
         'No account needed. POST /api/v1/agents/register {"email","name"} returns a one-time API key (shown once). Authed MCP tools take an "api_key" argument (MCP clients cannot always set HTTP headers); the REST API uses the X-API-Key header. Same validation either way.',
     },
     tools: mcpToolSummaries(),
     docs: {
       quickstart: `${MCP_ORIGIN}/agents`,
-      skill: 'https://github.com/tannerwj/the-pit/blob/master/skills/the-pit/SKILL.md',
-      starter_bots: 'https://github.com/tannerwj/the-pit/tree/master/examples',
+      skill: "https://github.com/tannerwj/the-pit/blob/master/skills/the-pit/SKILL.md",
+      starter_bots: "https://github.com/tannerwj/the-pit/tree/master/examples",
       llms_txt: `${MCP_ORIGIN}/llms.txt`,
       openapi: `${MCP_ORIGIN}/openapi.json`,
     },
@@ -1833,8 +2279,8 @@ function mcpServerManifest(): Record<string, unknown> {
 export function mcpServerJson(): Response {
   return new Response(JSON.stringify(mcpServerManifest(), null, 2), {
     headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600',
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=3600",
     },
   });
 }

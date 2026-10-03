@@ -28,10 +28,7 @@ function round2(x: number): number {
   return r === 0 ? 0 : r; // normalize -0
 }
 
-export function computeAlphaScore(
-  points: EquityPoint[],
-  startingCapital: number,
-): ScoreComponents {
+export function computeAlphaScore(points: EquityPoint[], startingCapital: number): ScoreComponents {
   if (points.length === 0) {
     return {
       totalReturn: 0,
@@ -74,8 +71,7 @@ export function computeAlphaScore(
     winRate = wins / dayReturns.length;
     const grossProfit = dayReturns.reduce((s, r) => s + Math.max(r, 0), 0);
     const grossLoss = dayReturns.reduce((s, r) => s + Math.max(-r, 0), 0);
-    profitFactor =
-      grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 3 : 1;
+    profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 3 : 1;
   }
 
   // Sharpe: per-snapshot simple returns, annualized from 5-minute periods, rf=0.
@@ -88,8 +84,7 @@ export function computeAlphaScore(
     }
     const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
     if (rets.length >= 2) {
-      const variance =
-        rets.reduce((s, r) => s + (r - mean) * (r - mean), 0) / (rets.length - 1);
+      const variance = rets.reduce((s, r) => s + (r - mean) * (r - mean), 0) / (rets.length - 1);
       const std = Math.sqrt(variance);
       const sharpe5min = std > 1e-12 ? mean / std : 0;
       sharpe = sharpe5min * Math.sqrt(PERIODS_PER_YEAR);

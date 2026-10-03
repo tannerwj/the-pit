@@ -2,18 +2,18 @@
 // Server-rendered HTML + vanilla JS (no frameworks, no external assets).
 // All money shown is virtual/paper. Agent identities are anonymized.
 
-import type { Env } from './lib/types';
-import { anonAgent } from './routes/spectator';
-import { q1 } from './lib/db';
-import { SUPPORTED_PAIRS } from './lib/leagues';
+import type { Env } from "./lib/types";
+import { anonAgent } from "./routes/spectator";
+import { q1 } from "./lib/db";
+import { SUPPORTED_PAIRS } from "./lib/leagues";
 
 function esc(s: string): string {
   return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 const CSS = `
@@ -551,28 +551,35 @@ export function smaSeries(vals: number[], p: number): (number | null)[] {
 
 /** "12d 04:33:21" countdown for season ends. Pure — unit-tested, embedded into page JS. */
 export function formatCountdown(ms: number): string {
-  if (ms <= 0) return 'ended';
+  if (ms <= 0) return "ended";
   const s = Math.floor(ms / 1000);
   const d = Math.floor(s / 86400);
-  const p2 = (n: number) => String(n).padStart(2, '0');
+  const p2 = (n: number) => String(n).padStart(2, "0");
   const t = `${p2(Math.floor((s % 86400) / 3600))}:${p2(Math.floor((s % 3600) / 60))}:${p2(s % 60)}`;
   return d > 0 ? `${d}d ${t}` : t;
 }
 
 function fmtCompact(n: number): string {
-  if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
-  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  if (n >= 1e9) return "$" + (n / 1e9).toFixed(2) + "B";
+  if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+  if (n >= 1e3) return "$" + (n / 1e3).toFixed(1) + "K";
   return fmtMoney(n);
 }
 
-function page(title: string, body: string, pageScript: string, active: string, desc?: string, pair = 'BTC/USD'): Response {
+function page(
+  title: string,
+  body: string,
+  pageScript: string,
+  active: string,
+  desc?: string,
+  pair = "BTC/USD",
+): Response {
   const meta =
     desc ??
-    'The Pit — a paper-trading league where AI agents trade live BTC, ETH, SOL, XRP, DOGE markets with virtual capital and get scored on risk-adjusted Alpha Score.';
-  const urlPair = pair.replace('/', '-');
+    "The Pit — a paper-trading league where AI agents trade live BTC, ETH, SOL, XRP, DOGE markets with virtual capital and get scored on risk-adjusted Alpha Score.";
+  const urlPair = pair.replace("/", "-");
   const favicon =
-    'data:image/svg+xml,' +
+    "data:image/svg+xml," +
     encodeURIComponent(
       `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='#0b0e11'/><rect x='6' y='12' width='4' height='9' fill='#0ecb81'/><line x1='8' y1='8' x2='8' y2='25' stroke='#0ecb81' stroke-width='1.4'/><rect x='14' y='9' width='4' height='11' fill='#f6465d'/><line x1='16' y1='6' x2='16' y2='23' stroke='#f6465d' stroke-width='1.4'/><rect x='22' y='14' width='4' height='8' fill='#0ecb81'/><line x1='24' y1='11' x2='24' y2='24' stroke='#0ecb81' stroke-width='1.4'/></svg>`,
     );
@@ -586,7 +593,7 @@ function page(title: string, body: string, pageScript: string, active: string, d
 <meta property="og:description" content="${esc(meta)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="The Pit">
-${active === 'markets' ? '<link rel="canonical" href="https://pit.tannerwj.com/">' : ''}
+${active === "markets" ? '<link rel="canonical" href="https://pit.tannerwj.com/">' : ""}
 <link rel="icon" href="${favicon}">
 <title>${esc(title)} — The Pit</title>
 <style>${CSS}</style>
@@ -595,11 +602,11 @@ ${active === 'markets' ? '<link rel="canonical" href="https://pit.tannerwj.com/"
 <header class="topnav">
 <a class="brand" href="/"><span class="pulse"></span>THE&nbsp;PIT</a>
 <nav class="links">
-<a href="/#markets"${active === 'markets' ? ' class="active"' : ''}>Markets</a>
-<a href="/leaderboard"${active === 'lb' ? ' class="active"' : ''}>Leaderboard</a>
-<a href="/leagues"${active === 'leagues' ? ' class="active"' : ''}>Leagues</a>
-<a href="/simulate"${active === 'sim' ? ' class="active"' : ''}>Simulate</a>
-<a href="/agents"${active === 'agents' ? ' class="active"' : ''}>For agents</a>
+<a href="/#markets"${active === "markets" ? ' class="active"' : ""}>Markets</a>
+<a href="/leaderboard"${active === "lb" ? ' class="active"' : ""}>Leaderboard</a>
+<a href="/leagues"${active === "leagues" ? ' class="active"' : ""}>Leagues</a>
+<a href="/simulate"${active === "sim" ? ' class="active"' : ""}>Simulate</a>
+<a href="/agents"${active === "agents" ? ' class="active"' : ""}>For agents</a>
 </nav>
 <div class="navtick">
 <span class="feedstat" id="feedStat">Coinbase · <span class="ok">live</span></span>
@@ -625,14 +632,14 @@ ${body}
 </body>
 </html>`;
   return new Response(html, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
 
 function fmtMoney(n: number): string {
   return (
-    '$' +
-    n.toLocaleString('en-US', {
+    "$" +
+    n.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
@@ -641,20 +648,20 @@ function fmtMoney(n: number): string {
 
 function chgBadge(chgPct: number | null): string {
   if (chgPct === null) return '<span class="chg">—</span>';
-  const cls = chgPct >= 0 ? 'up' : 'down';
-  const sign = chgPct >= 0 ? '+' : '';
+  const cls = chgPct >= 0 ? "up" : "down";
+  const sign = chgPct >= 0 ? "+" : "";
   return `<span class="chg ${cls}">${sign}${chgPct.toFixed(2)}%</span>`;
 }
 
 /** All pairs the Pit trades — DB form. */
-const MARKET_PAIRS = ['BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD', 'DOGE/USD'];
+const MARKET_PAIRS = ["BTC/USD", "ETH/USD", "SOL/USD", "XRP/USD", "DOGE/USD"];
 
 const ASSET_NAMES: Record<string, string> = {
-  BTC: 'Bitcoin',
-  ETH: 'Ethereum',
-  SOL: 'Solana',
-  XRP: 'XRP',
-  DOGE: 'Dogecoin',
+  BTC: "Bitcoin",
+  ETH: "Ethereum",
+  SOL: "Solana",
+  XRP: "XRP",
+  DOGE: "Dogecoin",
 };
 
 interface SeasonRow {
@@ -718,8 +725,8 @@ function seasonBanner(
 </div>`;
   }
   const when = next
-    ? ` · ${esc(next.name)}${next.starts_at ? ' opens ' + esc(new Date(next.starts_at).toUTCString().slice(0, 16)) : ''}`
-    : '';
+    ? ` · ${esc(next.name)}${next.starts_at ? " opens " + esc(new Date(next.starts_at).toUTCString().slice(0, 16)) : ""}`
+    : "";
   return `<div class="seasonbanner dim" id="seasonBanner">
 <span>⏳ No live season — the next season opens soon${when}.</span>
 <a class="btn sm" href="/simulate">Test a strategy →</a>
@@ -740,23 +747,22 @@ interface MarketStats {
 async function getMarketStats(env: Env, pair: string): Promise<MarketStats> {
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const latest = await env.DB.prepare(
-    'SELECT bid, ask, ts FROM quotes WHERE pair = ? ORDER BY ts DESC LIMIT 1',
+    "SELECT bid, ask, ts FROM quotes WHERE pair = ? ORDER BY ts DESC LIMIT 1",
   )
     .bind(pair)
     .first<{ bid: number; ask: number; ts: number }>();
   const agg = await env.DB.prepare(
-    'SELECT MAX((bid+ask)/2.0) AS hi, MIN((bid+ask)/2.0) AS lo, COUNT(*) AS n FROM quotes WHERE pair = ? AND ts >= ?',
+    "SELECT MAX((bid+ask)/2.0) AS hi, MIN((bid+ask)/2.0) AS lo, COUNT(*) AS n FROM quotes WHERE pair = ? AND ts >= ?",
   )
     .bind(pair, since)
     .first<{ hi: number | null; lo: number | null; n: number }>();
   const first = await env.DB.prepare(
-    'SELECT (bid+ask)/2.0 AS m FROM quotes WHERE pair = ? AND ts >= ? ORDER BY ts ASC LIMIT 1',
+    "SELECT (bid+ask)/2.0 AS m FROM quotes WHERE pair = ? AND ts >= ? ORDER BY ts ASC LIMIT 1",
   )
     .bind(pair, since)
     .first<{ m: number }>();
   const mid = latest ? (latest.bid + latest.ask) / 2 : null;
-  const chg24 =
-    mid !== null && first && first.m ? ((mid / first.m - 1) * 100) : null;
+  const chg24 = mid !== null && first && first.m ? (mid / first.m - 1) * 100 : null;
   return {
     bid: latest?.bid ?? null,
     ask: latest?.ask ?? null,
@@ -769,11 +775,7 @@ async function getMarketStats(env: Env, pair: string): Promise<MarketStats> {
   };
 }
 
-async function getLeaderboardRows(
-  env: Env,
-  seasonId: string,
-  limit?: number,
-): Promise<LbRow[]> {
+async function getLeaderboardRows(env: Env, seasonId: string, limit?: number): Promise<LbRow[]> {
   const lb = await env.DB.prepare(
     `SELECT se.id AS entry_id, a.name AS agent_name,
             sc.alpha_score, sc.total_return, sc.sharpe, sc.max_drawdown,
@@ -785,33 +787,28 @@ async function getLeaderboardRows(
      LEFT JOIN scores sc ON sc.entry_id = se.id
      WHERE se.season_id = ? AND se.status != 'banned'
      ORDER BY CASE WHEN sc.alpha_score IS NULL THEN 1 ELSE 0 END, sc.alpha_score DESC
-     ${limit ? `LIMIT ${limit}` : ''}`,
+     ${limit ? `LIMIT ${limit}` : ""}`,
   )
     .bind(seasonId)
     .all<LbRow>();
   return lb.results ?? [];
 }
 
-function lbCellNum(
-  key: string,
-  display: string,
-  val: number | null,
-  cls = '',
-): string {
-  const v = val === null || val === undefined ? '' : ` data-val="${val}"`;
-  return `<td class="num${cls ? ' ' + cls : ''}" data-k="${key}"${v}>${display}</td>`;
+function lbCellNum(key: string, display: string, val: number | null, cls = ""): string {
+  const v = val === null || val === undefined ? "" : ` data-val="${val}"`;
+  return `<td class="num${cls ? " " + cls : ""}" data-k="${key}"${v}>${display}</td>`;
 }
 
 function f2(n: number | null): string {
-  return n === null || n === undefined ? '–' : n.toFixed(2);
+  return n === null || n === undefined ? "–" : n.toFixed(2);
 }
 function fpct(n: number | null, d = 2): string {
-  return n === null || n === undefined ? '–' : `${(n * 100).toFixed(d)}%`;
+  return n === null || n === undefined ? "–" : `${(n * 100).toFixed(d)}%`;
 }
 function fpctS(n: number | null, d = 2): string {
-  if (n === null || n === undefined) return '–';
+  if (n === null || n === undefined) return "–";
   const v = n * 100;
-  return `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`;
+  return `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
 }
 
 /** Full sortable leaderboard table with equity sparklines, rank badges, and expandable Alpha breakdowns. */
@@ -821,19 +818,18 @@ function leaderboardTable(rows: LbRow[], seasonId: string): string {
   const trs = rows
     .map((r, i) => {
       const rank = r.rank ?? i + 1;
-      const retCls =
-        r.total_return === null ? '' : r.total_return >= 0 ? 'pos' : 'neg';
-      const rcls = rank <= 3 ? ` r${rank}` : '';
+      const retCls = r.total_return === null ? "" : r.total_return >= 0 ? "pos" : "neg";
+      const rcls = rank <= 3 ? ` r${rank}` : "";
       const main = `<tr class="xmain${rcls}" data-arank="${rank}">
 <td class="rankcell" data-k="rank" data-val="${rank}"><span class="rbadge">${rank}</span></td>
 <td data-k="agent">${esc(anonAgent(r.entry_id))}<span class="xbtn">▸</span></td>
-${lbCellNum('alpha', `<strong>${f2(r.alpha_score)}</strong>`, r.alpha_score)}
-${lbCellNum('ret', fpctS(r.total_return), r.total_return, retCls)}
-${lbCellNum('sharpe', f2(r.sharpe), r.sharpe)}
-${lbCellNum('dd', fpct(r.max_drawdown, 1), r.max_drawdown)}
-${lbCellNum('win', fpct(r.win_rate), r.win_rate)}
-${lbCellNum('trades', String(r.trades), r.trades)}
-${lbCellNum('equity', fmtMoney(r.equity), r.equity)}
+${lbCellNum("alpha", `<strong>${f2(r.alpha_score)}</strong>`, r.alpha_score)}
+${lbCellNum("ret", fpctS(r.total_return), r.total_return, retCls)}
+${lbCellNum("sharpe", f2(r.sharpe), r.sharpe)}
+${lbCellNum("dd", fpct(r.max_drawdown, 1), r.max_drawdown)}
+${lbCellNum("win", fpct(r.win_rate), r.win_rate)}
+${lbCellNum("trades", String(r.trades), r.trades)}
+${lbCellNum("equity", fmtMoney(r.equity), r.equity)}
 <td><canvas class="spark" data-entry="${esc(r.entry_id)}"></canvas></td>
 </tr>`;
       const detail = `<tr class="xdetail" hidden><td colspan="10">
@@ -846,9 +842,9 @@ ${lbCellNum('equity', fmtMoney(r.equity), r.equity)}
 </td></tr>`;
       return main + detail;
     })
-    .join('');
+    .join("");
   return `<div class="tablescroll"><table class="grid lb" data-season="${esc(seasonId)}">
-<thead><tr><th class="sortable">#<span class="arr"></span></th><th class="sortable">Agent<span class="arr"></span></th>${th('alpha', 'Alpha')}${th('ret', 'Return')}${th('sharpe', 'Sharpe')}${th('dd', 'Max DD')}${th('win', 'Win rate')}${th('trades', 'Trades')}${th('equity', 'Equity')}<th>Trend</th></tr></thead>
+<thead><tr><th class="sortable">#<span class="arr"></span></th><th class="sortable">Agent<span class="arr"></span></th>${th("alpha", "Alpha")}${th("ret", "Return")}${th("sharpe", "Sharpe")}${th("dd", "Max DD")}${th("win", "Win rate")}${th("trades", "Trades")}${th("equity", "Equity")}<th>Trend</th></tr></thead>
 <tbody>${trs || '<tr><td colspan="10" class="note" style="text-align:center;padding:24px">No entries yet.</td></tr>'}</tbody>
 </table></div>`;
 }
@@ -856,39 +852,42 @@ ${lbCellNum('equity', fmtMoney(r.equity), r.equity)}
 // ---------------------------------------------------------------- home ---
 export async function homePage(env: Env): Promise<Response> {
   const season = await getLiveSeason(env);
-  const pair = season?.pair ?? 'BTC/USD';
-  const urlPair = pair.replace('/', '-');
+  const pair = season?.pair ?? "BTC/USD";
+  const urlPair = pair.replace("/", "-");
   const statsByPair: Record<string, MarketStats> = {};
   for (const p of MARKET_PAIRS) statsByPair[p] = await getMarketStats(env, p);
-  const ms = statsByPair[pair] ?? statsByPair['BTC/USD'];
+  const ms = statsByPair[pair] ?? statsByPair["BTC/USD"];
   const nextSeason = await getNextSeason(env);
   const openSeason = await getOpenSeason(env);
   const banner = seasonBanner(season, openSeason, nextSeason);
 
   const agentCount = season
-    ? ((await env.DB.prepare(
-        "SELECT COUNT(*) AS n FROM season_entries WHERE season_id = ? AND status = 'active'",
-      )
-        .bind(season.id)
-        .first<{ n: number }>())?.n ?? 0)
+    ? ((
+        await env.DB.prepare(
+          "SELECT COUNT(*) AS n FROM season_entries WHERE season_id = ? AND status = 'active'",
+        )
+          .bind(season.id)
+          .first<{ n: number }>()
+      )?.n ?? 0)
     : 0;
   const since = Date.now() - 24 * 60 * 60 * 1000;
   const orders24 = season
-    ? ((await env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM orders o JOIN season_entries se ON se.id = o.entry_id
+    ? ((
+        await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM orders o JOIN season_entries se ON se.id = o.entry_id
          WHERE se.season_id = ? AND o.status = 'filled' AND o.filled_at >= ?`,
-      )
-        .bind(season.id, since)
-        .first<{ n: number }>())?.n ?? 0)
+        )
+          .bind(season.id, since)
+          .first<{ n: number }>()
+      )?.n ?? 0)
     : 0;
 
   const top = season ? await getLeaderboardRows(env, season.id, 5) : [];
   const topRows = top
     .map((r, i) => {
-      const retCls =
-        r.total_return === null ? '' : r.total_return >= 0 ? 'pos' : 'neg';
+      const retCls = r.total_return === null ? "" : r.total_return >= 0 ? "pos" : "neg";
       const rk = r.rank ?? i + 1;
-      return `<tr class="${rk <= 3 ? `r${rk}` : ''}">
+      return `<tr class="${rk <= 3 ? `r${rk}` : ""}">
 <td class="rankcell"><span class="rbadge">${rk}</span></td>
 <td>${esc(anonAgent(r.entry_id))}</td>
 <td class="num"><strong>${f2(r.alpha_score)}</strong></td>
@@ -896,30 +895,30 @@ export async function homePage(env: Env): Promise<Response> {
 <td class="num">${fmtMoney(r.equity)}</td>
 </tr>`;
     })
-    .join('');
+    .join("");
 
-  const heroPrice = ms.mid !== null ? fmtMoney(ms.mid) : '—';
+  const heroPrice = ms.mid !== null ? fmtMoney(ms.mid) : "—";
   const heroChg = ms.chg24 !== null ? chgBadge(ms.chg24) : '<span class="chg">—</span>';
 
   // Multi-pair markets table: one row per pair, server-rendered then live-polled client-side.
   const marketRows = MARKET_PAIRS.map((p) => {
-    const up = p.replace('/', '-');
+    const up = p.replace("/", "-");
     const st = statsByPair[p];
     const isHero = p === pair;
     const chgCell =
       st.chg24 !== null
-        ? `<span class="${st.chg24 >= 0 ? 'pos' : 'neg'}">${st.chg24 >= 0 ? '+' : ''}${st.chg24.toFixed(2)}%</span>`
-        : '–';
+        ? `<span class="${st.chg24 >= 0 ? "pos" : "neg"}">${st.chg24 >= 0 ? "+" : ""}${st.chg24.toFixed(2)}%</span>`
+        : "–";
     return `<tr>
-<td><strong>${esc(p.split('/')[0])}</strong> <span class="muted">/ USD</span></td>
-<td class="num mono" ${isHero ? 'id="rowPrice"' : `id="mp-${up}"`} style="font-weight:700">${st.mid !== null ? fmtMoney(st.mid) : '—'}</td>
+<td><strong>${esc(p.split("/")[0])}</strong> <span class="muted">/ USD</span></td>
+<td class="num mono" ${isHero ? 'id="rowPrice"' : `id="mp-${up}"`} style="font-weight:700">${st.mid !== null ? fmtMoney(st.mid) : "—"}</td>
 <td class="num" ${isHero ? 'id="rowChg"' : `id="mc-${up}"`}>${chgCell}</td>
-<td class="num mono pos" ${isHero ? '' : `id="mhi-${up}"`}>${st.hi24 !== null ? fmtMoney(st.hi24) : '—'}</td>
-<td class="num mono neg" ${isHero ? '' : `id="mlo-${up}"`}>${st.lo24 !== null ? fmtMoney(st.lo24) : '—'}</td>
-<td class="num">${isHero ? agentCount : '–'}</td>
+<td class="num mono pos" ${isHero ? "" : `id="mhi-${up}"`}>${st.hi24 !== null ? fmtMoney(st.hi24) : "—"}</td>
+<td class="num mono neg" ${isHero ? "" : `id="mlo-${up}"`}>${st.lo24 !== null ? fmtMoney(st.lo24) : "—"}</td>
+<td class="num">${isHero ? agentCount : "–"}</td>
 <td><a href="/pair/${up}">Trade view →</a></td>
 </tr>`;
-  }).join('');
+  }).join("");
 
   const body = `
 ${banner}
@@ -938,8 +937,8 @@ ${banner}
 <div class="price-xl mono" id="heroPrice">${heroPrice}</div>
 <div style="margin-top:6px"><span id="heroChg">${heroChg}</span> <span class="muted">24h</span></div>
 <div class="stats" style="margin-top:16px">
-<div class="stat"><div class="k">24h High</div><div class="v mono pos">${ms.hi24 !== null ? fmtMoney(ms.hi24) : '—'}</div></div>
-<div class="stat"><div class="k">24h Low</div><div class="v mono neg">${ms.lo24 !== null ? fmtMoney(ms.lo24) : '—'}</div></div>
+<div class="stat"><div class="k">24h High</div><div class="v mono pos">${ms.hi24 !== null ? fmtMoney(ms.hi24) : "—"}</div></div>
+<div class="stat"><div class="k">24h Low</div><div class="v mono neg">${ms.lo24 !== null ? fmtMoney(ms.lo24) : "—"}</div></div>
 <div class="stat"><div class="k">Bots competing</div><div class="v mono">${agentCount}</div></div>
 <div class="stat"><div class="k">Orders filled · 24h</div><div class="v mono">${orders24}</div></div>
 </div>
@@ -965,12 +964,12 @@ ${banner}
 
 <div class="twocol">
 <div class="panel">
-<h2 class="ph">Top bots ${season ? `· ${esc(season.name)}` : ''}</h2>
+<h2 class="ph">Top bots ${season ? `· ${esc(season.name)}` : ""}</h2>
 <div class="tablescroll"><table class="grid">
 <thead><tr><th>#</th><th>Bot</th><th class="num">Alpha</th><th class="num">Return</th><th class="num">Equity</th></tr></thead>
 <tbody>${topRows || '<tr><td colspan="5" class="note" style="text-align:center;padding:20px">No entries yet.</td></tr>'}</tbody>
 </table></div>
-<p style="margin:10px 0 0"><a href="/leaderboard${season ? `?season=${encodeURIComponent(season.id)}` : ''}">Full leaderboard →</a></p>
+<p style="margin:10px 0 0"><a href="/leaderboard${season ? `?season=${encodeURIComponent(season.id)}` : ""}">Full leaderboard →</a></p>
 </div>
 <div class="panel">
 <h2 class="ph">Got an AI trader?</h2>
@@ -1013,11 +1012,11 @@ document.addEventListener('pit:pairday',function(e){
 });
 `;
   return page(
-    'Watch AI bots trade crypto live',
+    "Watch AI bots trade crypto live",
     body,
     js,
-    'markets',
-    'The Pit is a live paper-trading competition: AI bots trade real crypto markets (BTC, ETH, SOL, XRP, DOGE) with virtual money and get ranked on risk-adjusted skill. Watch the leaderboard, track live prices, or test your own strategy.',
+    "markets",
+    "The Pit is a live paper-trading competition: AI bots trade real crypto markets (BTC, ETH, SOL, XRP, DOGE) with virtual money and get ranked on risk-adjusted skill. Watch the leaderboard, track live prices, or test your own strategy.",
     pair,
   );
 }
@@ -1205,56 +1204,53 @@ document.querySelectorAll('[data-copy]').forEach(function(btn){
 });
 `;
   return page(
-    'Agents',
+    "Agents",
     body,
     js,
-    'agents',
-    'The Pit agent quickstart — register with one POST, enter a season, and place your first paper trade. Copy-paste curl examples, MCP config, and rules. All money is virtual.',
+    "agents",
+    "The Pit agent quickstart — register with one POST, enter a season, and place your first paper trade. Copy-paste curl examples, MCP config, and rules. All money is virtual.",
   );
 }
 
 // ---------------------------------------------------------- leaderboard ---
-export async function leaderboardPage(
-  env: Env,
-  seasonId: string | null,
-): Promise<Response> {
+export async function leaderboardPage(env: Env, seasonId: string | null): Promise<Response> {
   let season: SeasonRow | null = null;
   if (seasonId) {
     season = await env.DB.prepare(
-      'SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE id = ?',
+      "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE id = ?",
     )
       .bind(seasonId)
       .first<SeasonRow>();
     if (!season)
       return page(
-        'Not found',
+        "Not found",
         '<p class="crumbs"><a href="/">Markets</a></p><h1 class="ptitle">Season not found</h1>',
-        '',
-        'lb',
+        "",
+        "lb",
       );
   } else {
     season = (await getLiveSeason(env)) ?? (await getOpenSeason(env));
   }
 
   const all = await env.DB.prepare(
-    'SELECT id, name, status FROM seasons ORDER BY starts_at DESC LIMIT 20',
+    "SELECT id, name, status FROM seasons ORDER BY starts_at DESC LIMIT 20",
   ).all<{ id: string; name: string; status: string }>();
   const seasons = all.results ?? [];
   const opts = seasons
     .map(
       (s) =>
-        `<option value="${esc(s.id)}"${season && s.id === season.id ? ' selected' : ''}>${esc(s.name)} (${esc(s.status)})</option>`,
+        `<option value="${esc(s.id)}"${season && s.id === season.id ? " selected" : ""}>${esc(s.name)} (${esc(s.status)})</option>`,
     )
-    .join('');
+    .join("");
 
   if (!season) {
     return page(
-      'Leaderboard',
+      "Leaderboard",
       `<p class="crumbs"><a href="/">Markets</a> / Leaderboard</p>
 <h1 class="ptitle">Leaderboard</h1>
 <div class="panel" style="margin-top:14px"><p class="note">No seasons yet.</p></div>`,
-      '',
-      'lb',
+      "",
+      "lb",
     );
   }
 
@@ -1273,7 +1269,7 @@ ${banner}
 <p class="muted" style="margin:6px 0 0">${esc(season.name)} · ${esc(season.pair)} · click a column to sort</p>
 </div>
 <div style="display:flex;gap:10px;align-items:center">
-<span class="badge-${season.status === 'live' ? 'live' : 'dim'}">${esc(season.status)}</span>
+<span class="badge-${season.status === "live" ? "live" : "dim"}">${esc(season.status)}</span>
 <select class="ssel" id="seasonSel">${opts}</select>
 </div>
 </div>
@@ -1290,21 +1286,16 @@ ${TABLE_JS}`;
     `Leaderboard — ${season.name}`,
     body,
     js,
-    'lb',
+    "lb",
     `The Pit leaderboard for ${season.name}: AI agents ranked by Alpha Score — a risk-adjusted 0–100 score on virtual paper trading.`,
   );
 }
 
 // ---------------------------------------------------------------- pair ---
 /** Indicative depth ladder synthesized from the spread — clearly not a real order book. */
-function depthLadder(
-  bid: number | null,
-  ask: number | null,
-  base: string,
-): string {
-  if (bid === null || ask === null)
-    return '<p class="note">Waiting on quote…</p>';
-  let rows = '';
+function depthLadder(bid: number | null, ask: number | null, base: string): string {
+  if (bid === null || ask === null) return '<p class="note">Waiting on quote…</p>';
+  let rows = "";
   for (let i = 5; i >= 1; i--) {
     const p = ask * (1 + 0.0004 * i);
     const s = (0.02 * (6 - i)).toFixed(3);
@@ -1331,41 +1322,39 @@ interface BookRow {
 
 export async function pairPage(env: Env, pair: string): Promise<Response> {
   // URL form uses a dash (e.g. /pair/BTC-USD); the DB stores 'BTC/USD'.
-  const dbPair = pair.includes('/') ? pair : pair.replace('-', '/');
-  const urlPair = dbPair.replace('/', '-');
-  const base = dbPair.split('/')[0] ?? 'BTC';
+  const dbPair = pair.includes("/") ? pair : pair.replace("-", "/");
+  const urlPair = dbPair.replace("/", "-");
+  const base = dbPair.split("/")[0] ?? "BTC";
   const assetName = ASSET_NAMES[base] ?? base;
   const ms = await getMarketStats(env, dbPair);
 
-  const book =
-    (await env.DB.prepare(
-      `SELECT COUNT(CASE WHEN p.qty > 0 THEN 1 END) AS longs,
+  const book = (await env.DB.prepare(
+    `SELECT COUNT(CASE WHEN p.qty > 0 THEN 1 END) AS longs,
               COUNT(CASE WHEN p.qty < 0 THEN 1 END) AS shorts,
               COALESCE(SUM(p.qty), 0) AS net_qty
        FROM positions p
        JOIN season_entries se ON se.id = p.entry_id
        JOIN seasons s ON s.id = se.season_id
        WHERE p.pair = ? AND p.qty != 0 AND se.status = 'active' AND s.status = 'live'`,
-    )
-      .bind(dbPair)
-      .first<BookRow>()) ?? { longs: 0, shorts: 0, net_qty: 0 };
+  )
+    .bind(dbPair)
+    .first<BookRow>()) ?? { longs: 0, shorts: 0, net_qty: 0 };
 
   const season = await getLiveSeason(env);
   const lbRows = season ? await getLeaderboardRows(env, season.id) : [];
   const top5 = lbRows.slice(0, 5);
 
-  const heroPrice = ms.mid !== null ? fmtMoney(ms.mid) : '—';
+  const heroPrice = ms.mid !== null ? fmtMoney(ms.mid) : "—";
   const netUsd = book.net_qty * (ms.mid ?? 0);
-  const netCls = netUsd >= 0 ? 'pos' : 'neg';
+  const netCls = netUsd >= 0 ? "pos" : "neg";
   const totalPos = book.longs + book.shorts;
   const longPct = totalPos ? (book.longs / totalPos) * 100 : 50;
   const spreadBps =
     ms.bid !== null && ms.ask !== null && ms.mid
       ? (((ms.ask - ms.bid) / ms.mid) * 10000).toFixed(1)
-      : '—';
+      : "—";
   // Estimated 24h notional volume from quote-tick flow at a nominal 0.01 base-unit per tick.
-  const estVol =
-    ms.mid !== null && ms.ticks24 > 0 ? ms.ticks24 * ms.mid * 0.01 : null;
+  const estVol = ms.mid !== null && ms.ticks24 > 0 ? ms.ticks24 * ms.mid * 0.01 : null;
   const drPct =
     ms.mid !== null && ms.hi24 !== null && ms.lo24 !== null && ms.hi24 > ms.lo24
       ? Math.max(0, Math.min(100, ((ms.mid - ms.lo24) / (ms.hi24 - ms.lo24)) * 100))
@@ -1376,17 +1365,16 @@ export async function pairPage(env: Env, pair: string): Promise<Response> {
 
   const top5Html = top5
     .map((r, i) => {
-      const retCls =
-        r.total_return === null ? '' : r.total_return >= 0 ? 'pos' : 'neg';
+      const retCls = r.total_return === null ? "" : r.total_return >= 0 ? "pos" : "neg";
       const rk = r.rank ?? i + 1;
-      return `<tr class="${rk <= 3 ? `r${rk}` : ''}">
+      return `<tr class="${rk <= 3 ? `r${rk}` : ""}">
 <td class="rankcell"><span class="rbadge">${rk}</span></td>
 <td>${esc(anonAgent(r.entry_id))}</td>
 <td class="num"><strong>${f2(r.alpha_score)}</strong></td>
 <td class="num ${retCls}">${fpctS(r.total_return)}</td>
 </tr>`;
     })
-    .join('');
+    .join("");
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / ${esc(dbPair)}</p>
@@ -1399,9 +1387,9 @@ ${banner}
 <div style="margin-top:6px"><span id="phChg">${ms.chg24 !== null ? chgBadge(ms.chg24) : '<span class="chg">—</span>'}</span> <span class="muted">24h</span></div>
 </div>
 <div class="ph-stats">
-<div><div class="k">24h High</div><div class="v mono pos" id="phHi">${ms.hi24 !== null ? fmtMoney(ms.hi24) : '—'}</div></div>
-<div><div class="k">24h Low</div><div class="v mono neg" id="phLo">${ms.lo24 !== null ? fmtMoney(ms.lo24) : '—'}</div></div>
-<div><div class="k">Spread</div><div class="v mono" id="phSpread">${spreadBps === '—' ? '—' : spreadBps + ' bps'}</div></div>
+<div><div class="k">24h High</div><div class="v mono pos" id="phHi">${ms.hi24 !== null ? fmtMoney(ms.hi24) : "—"}</div></div>
+<div><div class="k">24h Low</div><div class="v mono neg" id="phLo">${ms.lo24 !== null ? fmtMoney(ms.lo24) : "—"}</div></div>
+<div><div class="k">Spread</div><div class="v mono" id="phSpread">${spreadBps === "—" ? "—" : spreadBps + " bps"}</div></div>
 </div>
 </div>
 </div>
@@ -1422,20 +1410,20 @@ ${banner}
 </div>
 <div class="chartwrap"><canvas id="candles" data-pair="${esc(urlPair)}"></canvas></div>
 <div class="dayrange" id="dayRange">
-<span class="dr-low mono" id="drLow">${ms.lo24 !== null ? fmtMoney(ms.lo24) : '—'}</span>
+<span class="dr-low mono" id="drLow">${ms.lo24 !== null ? fmtMoney(ms.lo24) : "—"}</span>
 <div class="dr-track"><div class="dr-marker" id="drMarker" style="left:${drPct.toFixed(1)}%"></div></div>
-<span class="dr-high mono" id="drHigh">${ms.hi24 !== null ? fmtMoney(ms.hi24) : '—'}</span>
+<span class="dr-high mono" id="drHigh">${ms.hi24 !== null ? fmtMoney(ms.hi24) : "—"}</span>
 </div>
 <p class="note" style="margin:8px 0 0">Candles built from the 1-minute Coinbase ingest; bars show quote ticks per bucket. Hover for OHLC.</p>
 </div>
 <aside>
 <div class="panel">
 <h3>Quote</h3>
-<div class="qrow"><span class="k">Bid</span><span class="v mono pos" id="qBid">${ms.bid !== null ? fmtMoney(ms.bid) : '—'}</span></div>
-<div class="qrow"><span class="k">Ask</span><span class="v mono neg" id="qAsk">${ms.ask !== null ? fmtMoney(ms.ask) : '—'}</span></div>
-<div class="qrow"><span class="k">Spread</span><span class="v mono" id="qSpread">${spreadBps === '—' ? '—' : spreadBps + ' bps'}</span></div>
-<div class="qrow"><span class="k">Est. vol · 24h</span><span class="v mono" title="Estimated from quote-tick flow at nominal 0.01 ${esc(base)}/tick — indicative, not market volume">${estVol !== null ? fmtCompact(estVol) : '—'}</span></div>
-<div class="qrow"><span class="k">Ticks · 24h</span><span class="v mono">${ms.ticks24.toLocaleString('en-US')}</span></div>
+<div class="qrow"><span class="k">Bid</span><span class="v mono pos" id="qBid">${ms.bid !== null ? fmtMoney(ms.bid) : "—"}</span></div>
+<div class="qrow"><span class="k">Ask</span><span class="v mono neg" id="qAsk">${ms.ask !== null ? fmtMoney(ms.ask) : "—"}</span></div>
+<div class="qrow"><span class="k">Spread</span><span class="v mono" id="qSpread">${spreadBps === "—" ? "—" : spreadBps + " bps"}</span></div>
+<div class="qrow"><span class="k">Est. vol · 24h</span><span class="v mono" title="Estimated from quote-tick flow at nominal 0.01 ${esc(base)}/tick — indicative, not market volume">${estVol !== null ? fmtCompact(estVol) : "—"}</span></div>
+<div class="qrow"><span class="k">Ticks · 24h</span><span class="v mono">${ms.ticks24.toLocaleString("en-US")}</span></div>
 </div>
 <div class="panel">
 <h3>Depth · indicative</h3>
@@ -1454,7 +1442,7 @@ ${depthLadder(ms.bid, ms.ask, base)}
 <thead><tr><th>#</th><th>Agent</th><th class="num">Alpha</th><th class="num">Return</th></tr></thead>
 <tbody>${top5Html || '<tr><td colspan="4" class="note" style="text-align:center;padding:16px">No entries yet.</td></tr>'}</tbody>
 </table></div>
-<p style="margin:10px 0 0"><a href="/leaderboard${season ? `?season=${encodeURIComponent(season.id)}` : ''}">Full leaderboard →</a></p>
+<p style="margin:10px 0 0"><a href="/leaderboard${season ? `?season=${encodeURIComponent(season.id)}` : ""}">Full leaderboard →</a></p>
 </div>
 </aside>
 </div>
@@ -1465,7 +1453,7 @@ ${depthLadder(ms.bid, ms.ask, base)}
 <ul class="trades" id="trades" data-pair="${esc(urlPair)}"><li class="tskel"><div class="skel" style="height:14px;width:92%"></div></li><li class="tskel"><div class="skel" style="height:14px;width:78%"></div></li><li class="tskel"><div class="skel" style="height:14px;width:85%"></div></li></ul>
 </div>
 <div class="panel">
-<h3>Leaderboard ${season ? `· ${esc(season.name)}` : ''}</h3>
+<h3>Leaderboard ${season ? `· ${esc(season.name)}` : ""}</h3>
 ${season ? leaderboardTable(lbRows, season.id) : '<p class="note">No live season.</p>'}
 </div>
 </div>`;
@@ -1656,7 +1644,7 @@ ${TABLE_JS}`;
     `${dbPair} — Markets`,
     body,
     js,
-    'markets',
+    "markets",
     `Trade view for ${dbPair} on The Pit — live candlestick chart, bid/ask quotes, book pressure, and the anonymized agent trades tape. All money is virtual.`,
     dbPair,
   );
@@ -1682,32 +1670,30 @@ interface LeagueRow {
 function leaguePairs(raw: string): string[] {
   try {
     const a = JSON.parse(raw);
-    return Array.isArray(a)
-      ? a.filter((x): x is string => typeof x === 'string')
-      : [];
+    return Array.isArray(a) ? a.filter((x): x is string => typeof x === "string") : [];
   } catch {
     return [];
   }
 }
 
 function statusBadge(status: string): string {
-  if (status === 'live') return '<span class="badge-live">LIVE</span>';
-  if (status === 'none') return '<span class="badge-dim">no seasons</span>';
+  if (status === "live") return '<span class="badge-live">LIVE</span>';
+  if (status === "none") return '<span class="badge-dim">no seasons</span>';
   return `<span class="badge-dim">${esc(status)}</span>`;
 }
 
 function leagueChips(l: LeagueRow): string {
   const pairs = leaguePairs(l.pairs);
   const chips = [
-    pairs.length ? pairs.join(', ') : '—',
+    pairs.length ? pairs.join(", ") : "—",
     `${l.season_days}d seasons`,
     `${fmtMoney(l.starting_capital)} capital`,
     `${l.max_leverage}× leverage`,
-    `shorts: ${l.allow_short ? 'yes' : 'no'}`,
+    `shorts: ${l.allow_short ? "yes" : "no"}`,
     `max ${l.max_agents} agents`,
   ]
     .map((c) => `<span class="pchip">${esc(c)}</span>`)
-    .join('');
+    .join("");
   return `<div class="pchips">${chips}</div>`;
 }
 
@@ -1721,27 +1707,29 @@ export async function leaguesPage(env: Env): Promise<Response> {
     await Promise.all(
       leagues.map(async (l) => {
         const agentCount =
-          (await env.DB.prepare(
-            `SELECT COUNT(DISTINCT se.agent_id) AS n FROM season_entries se
+          (
+            await env.DB.prepare(
+              `SELECT COUNT(DISTINCT se.agent_id) AS n FROM season_entries se
              JOIN seasons s ON s.id = se.season_id WHERE s.league_id = ?`,
-          )
-            .bind(l.id)
-            .first<{ n: number }>())?.n ?? 0;
+            )
+              .bind(l.id)
+              .first<{ n: number }>()
+          )?.n ?? 0;
         const seasonCount =
-          (await env.DB.prepare(
-            'SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?',
-          )
-            .bind(l.id)
-            .first<{ n: number }>())?.n ?? 0;
+          (
+            await env.DB.prepare("SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?")
+              .bind(l.id)
+              .first<{ n: number }>()
+          )?.n ?? 0;
         const latest = await env.DB.prepare(
-          'SELECT status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC LIMIT 1',
+          "SELECT status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC LIMIT 1",
         )
           .bind(l.id)
           .first<{ status: string }>();
-        const status = latest?.status ?? 'none';
+        const status = latest?.status ?? "none";
         return `<div class="panel leaguecard">
 <h3><a href="/league/${esc(l.slug)}">${esc(l.name)}</a></h3>
-${l.description ? `<p class="muted" style="margin:0">${esc(l.description)}</p>` : ''}
+${l.description ? `<p class="muted" style="margin:0">${esc(l.description)}</p>` : ""}
 ${leagueChips(l)}
 <div class="lmeta">
 <span><strong class="num" style="color:#eaecef">${agentCount}</strong> agents</span>
@@ -1752,7 +1740,7 @@ ${statusBadge(status)}
 </div>`;
       }),
     )
-  ).join('');
+  ).join("");
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / Leagues</p>
@@ -1769,11 +1757,11 @@ ${cards ? `<div class="leaguegrid">${cards}</div>` : '<div class="panel"><p clas
 <p class="note" style="margin:0">See <a href="/llms.txt">/llms.txt</a> for the full agent API. All money is virtual.</p>
 </div>`;
   return page(
-    'Leagues',
+    "Leagues",
     body,
-    '',
-    'leagues',
-    'The Pit fantasy leagues — agent-run paper-trading leagues with custom markets, season length, capital, and leverage. Spectate the standings.',
+    "",
+    "leagues",
+    "The Pit fantasy leagues — agent-run paper-trading leagues with custom markets, season length, capital, and leverage. Spectate the standings.",
   );
 }
 
@@ -1787,24 +1775,24 @@ export async function leaguePage(env: Env, slug: string): Promise<Response> {
     .first<LeagueRow>();
   if (!l) {
     return page(
-      'League not found',
+      "League not found",
       `<p class="crumbs"><a href="/">Markets</a> / <a href="/leagues">Leagues</a></p>
 <h1 class="ptitle">League not found</h1>
 <p class="muted">No league with that slug exists. <a href="/leagues">Browse leagues →</a></p>`,
-      '',
-      'leagues',
+      "",
+      "leagues",
     );
   }
 
   const sAll = await env.DB.prepare(
-    'SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC',
+    "SELECT id, name, pair, starts_at, ends_at, status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC",
   )
     .bind(l.id)
     .all<SeasonRow>();
   const seasons = sAll.results ?? [];
   const defSeason =
-    seasons.find((s) => s.status === 'live') ??
-    seasons.find((s) => s.status === 'open') ??
+    seasons.find((s) => s.status === "live") ??
+    seasons.find((s) => s.status === "open") ??
     seasons[0] ??
     null;
   const lbRows = defSeason ? await getLeaderboardRows(env, defSeason.id) : [];
@@ -1813,9 +1801,9 @@ export async function leaguePage(env: Env, slug: string): Promise<Response> {
   const seasonRows = seasons
     .map((s) => {
       let cd: string;
-      if (s.status === 'live') {
+      if (s.status === "live") {
         cd = `<span class="sdetail">ends in <span class="mono js-countdown" data-ends="${s.ends_at}">${esc(formatCountdown(s.ends_at - now))}</span></span>`;
-      } else if (s.status === 'open' || s.status === 'scheduled') {
+      } else if (s.status === "open" || s.status === "scheduled") {
         cd = `<span class="sdetail">starts in <span class="mono js-countdown" data-ends="${s.starts_at}">${esc(formatCountdown(s.starts_at - now))}</span></span>`;
       } else {
         cd = '<span class="sdetail">ended</span>';
@@ -1828,23 +1816,23 @@ ${cd}
 <span class="sdetail" style="margin-left:auto"><code class="ep">POST /api/v1/seasons/${esc(s.id)}/enter</code></span>
 </div>`;
     })
-    .join('');
+    .join("");
 
   const opts = seasons
     .map(
       (s) =>
-        `<option value="${esc(s.id)}"${defSeason && s.id === defSeason.id ? ' selected' : ''}>${esc(s.name)} (${esc(s.status)})</option>`,
+        `<option value="${esc(s.id)}"${defSeason && s.id === defSeason.id ? " selected" : ""}>${esc(s.name)} (${esc(s.status)})</option>`,
     )
-    .join('');
+    .join("");
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / <a href="/leagues">Leagues</a> / ${esc(l.name)}</p>
 <div class="pairhead" style="margin-bottom:14px">
 <div>
 <h1 class="ptitle">${esc(l.name)}</h1>
-${l.description ? `<p class="muted" style="margin:6px 0 0;max-width:640px">${esc(l.description)}</p>` : ''}
+${l.description ? `<p class="muted" style="margin:6px 0 0;max-width:640px">${esc(l.description)}</p>` : ""}
 </div>
-<div>${statusBadge(defSeason?.status ?? 'none')}</div>
+<div>${statusBadge(defSeason?.status ?? "none")}</div>
 </div>
 
 <div class="panel">
@@ -1859,7 +1847,7 @@ ${seasonRows || '<p class="note">No seasons yet.</p>'}
 </div>
 
 <div class="panel">
-<h3>Leaderboard${defSeason ? ` · <span id="leagueLbName">${esc(defSeason.name)}</span>` : ''}</h3>
+<h3>Leaderboard${defSeason ? ` · <span id="leagueLbName">${esc(defSeason.name)}</span>` : ""}</h3>
 <div style="margin-bottom:10px"><select class="ssel" id="leagueSeasonSel">${opts}</select></div>
 <div id="leagueLb">${defSeason ? leaderboardTable(lbRows, defSeason.id) : '<p class="note">No seasons yet.</p>'}</div>
 </div>
@@ -1930,7 +1918,7 @@ function pitLbTable(entries,seasonId){
   });
 })();
 ${TABLE_JS}`;
-  return page(`League — ${l.name}`, body, js, 'leagues');
+  return page(`League — ${l.name}`, body, js, "leagues");
 }
 
 // ---------------------------------------------------------------------------
@@ -1942,31 +1930,31 @@ export async function simulatePage(env: Env): Promise<Response> {
   // Available history range, derived from the data — never hardcoded.
   const range = await q1<{ mn: number | null; mx: number | null }>(
     env.DB,
-    'SELECT MIN(ts) AS mn, MAX(ts) AS mx FROM quotes',
+    "SELECT MIN(ts) AS mn, MAX(ts) AS mx FROM quotes",
   );
-  const mn = typeof range?.mn === 'number' ? range.mn : null;
-  const mx = typeof range?.mx === 'number' ? range.mx : null;
+  const mn = typeof range?.mn === "number" ? range.mn : null;
+  const mx = typeof range?.mx === "number" ? range.mx : null;
   const hasHistory = mn !== null && mx !== null && (mx as number) > (mn as number);
   const lo = mn as number;
   const hi = mx as number;
 
   const monthYear = (ms: number): string =>
-    new Date(ms).toLocaleString('en-US', {
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'UTC',
+    new Date(ms).toLocaleString("en-US", {
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
     });
   const months = hasHistory ? Math.max(1, Math.round((hi - lo) / (30.44 * 86_400_000))) : 0;
   const histNote = hasHistory
     ? `${months} months of hourly history (${monthYear(lo)} → ${monthYear(hi)})`
-    : 'history is still being collected';
+    : "history is still being collected";
 
   const pairBtns = (SUPPORTED_PAIRS as readonly string[])
     .map(
       (p, i) =>
-        `<button type="button" data-pair="${p}"${i === 0 ? ' class="on"' : ''}>${p}</button>`,
+        `<button type="button" data-pair="${p}"${i === 0 ? ' class="on"' : ""}>${p}</button>`,
     )
-    .join('');
+    .join("");
 
   const body = `
 <p class="crumbs"><a href="/">Markets</a> / Simulator</p>
@@ -3003,5 +2991,11 @@ document.addEventListener('keydown',function(e){
 });
 })();`;
 
-  return page('Simulator', body, js, 'sim', 'The Pit simulator — run hypothetical trades against a year of hourly BTC, ETH, SOL, XRP, DOGE market history. No account needed; nothing is written.');
+  return page(
+    "Simulator",
+    body,
+    js,
+    "sim",
+    "The Pit simulator — run hypothetical trades against a year of hourly BTC, ETH, SOL, XRP, DOGE market history. No account needed; nothing is written.",
+  );
 }

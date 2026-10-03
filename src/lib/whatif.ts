@@ -8,20 +8,16 @@
 //   - fills replay at historical prices, never at future prices
 //   - leverage caps are NOT enforced in replay (counterfactuals, not tradable)
 
-import type { Side } from './types';
-import { applyFill, marketFillPrice, midPrice } from './engine';
-import {
-  computeAlphaScore,
-  type EquityPoint,
-  type ScoreComponents,
-} from './scoring';
+import type { Side } from "./types";
+import { applyFill, marketFillPrice, midPrice } from "./engine";
+import { computeAlphaScore, type EquityPoint, type ScoreComponents } from "./scoring";
 
 export interface WhatIfFill {
   id: string;
   pair: string;
   side: Side;
   qty: number;
-  type: 'market' | 'limit';
+  type: "market" | "limit";
   limitPrice: number | null;
   ts: number; // filled_at, unix ms
 }
@@ -57,10 +53,7 @@ export interface ReplayResult {
 }
 
 /** Nearest quote at-or-before t (no lookahead). Binary search; null when none. */
-export function quoteAt(
-  quotes: WhatIfQuote[] | undefined,
-  t: number,
-): WhatIfQuote | null {
+export function quoteAt(quotes: WhatIfQuote[] | undefined, t: number): WhatIfQuote | null {
   if (!quotes || quotes.length === 0) return null;
   let lo = 0;
   let hi = quotes.length - 1;
@@ -106,7 +99,7 @@ export function replayCounterfactual(args: ReplayArgs): ReplayResult {
       const qty = f.qty * args.sizing;
       if (!(qty > 0)) continue;
       let fillPrice: number;
-      if (f.type === 'limit' && f.limitPrice !== null && f.limitPrice > 0) {
+      if (f.type === "limit" && f.limitPrice !== null && f.limitPrice > 0) {
         fillPrice = f.limitPrice;
       } else {
         const q = quoteAt(args.quotesByPair.get(f.pair), f.ts);
@@ -140,7 +133,7 @@ export function replayCounterfactual(args: ReplayArgs): ReplayResult {
     ) {
       for (const [pair, pos] of positions) {
         if (pos.qty === 0) continue;
-        const closeSide: Side = pos.qty > 0 ? 'sell' : 'buy';
+        const closeSide: Side = pos.qty > 0 ? "sell" : "buy";
         const q = quoteAt(args.quotesByPair.get(pair), t);
         const closePrice = q ? marketFillPrice(q, closeSide) : pos.avgPrice;
         const res = applyFill(pos, closeSide, Math.abs(pos.qty), closePrice);
@@ -172,7 +165,7 @@ export function replayCounterfactual(args: ReplayArgs): ReplayResult {
 
 export interface ScenarioResult {
   name: string;
-  kind: 'sizing' | 'stop_loss' | 'skip_worst';
+  kind: "sizing" | "stop_loss" | "skip_worst";
   params: Record<string, number | string>;
   return_pct: number;
   max_dd: number;
@@ -210,8 +203,7 @@ export function downsamplePoints(
   return out;
 }
 
-const pct = (x: number): string =>
-  `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)}%`;
+const pct = (x: number): string => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}%`;
 // Drawdown is a magnitude (0..1), never signed: "max drawdown 8.1%", not "+8.1%".
 const pctMag = (x: number): string => `${(Math.abs(x) * 100).toFixed(1)}%`;
 
@@ -254,7 +246,7 @@ export function runWhatIf(input: WhatIfInput): {
 
   const toScenario = (
     name: string,
-    kind: ScenarioResult['kind'],
+    kind: ScenarioResult["kind"],
     params: Record<string, number | string>,
     replay: ReplayResult,
     note?: string,
@@ -275,11 +267,16 @@ export function runWhatIf(input: WhatIfInput): {
   };
 
   for (const k of input.sizings) {
-    const replay = replayCounterfactual({ ...base, sizing: k, stopLossPct: null, skipFillId: null });
+    const replay = replayCounterfactual({
+      ...base,
+      sizing: k,
+      stopLossPct: null,
+      skipFillId: null,
+    });
     scenarios.push(
       toScenario(
         `${k}x sizing`,
-        'sizing',
+        "sizing",
         { k },
         replay,
         replay.fillsSkippedNoQuote > 0
@@ -297,15 +294,20 @@ export function runWhatIf(input: WhatIfInput): {
       skipFillId: null,
     });
     scenarios.push(
-      toScenario(`${Math.round(s * 100)}% stop-loss`, 'stop_loss', { stop_pct: Math.round(s * 100) }, replay),
+      toScenario(
+        `${Math.round(s * 100)}% stop-loss`,
+        "stop_loss",
+        { stop_pct: Math.round(s * 100) },
+        replay,
+      ),
     );
   }
 
   if (input.includeSkipWorst) {
     if (input.fills.length > SKIP_WORST_MAX_FILLS) {
       scenarios.push({
-        name: 'skip worst trade',
-        kind: 'skip_worst',
+        name: "skip worst trade",
+        kind: "skip_worst",
         params: {},
         return_pct: actual.return_pct,
         max_dd: actual.max_dd,
@@ -332,7 +334,7 @@ export function runWhatIf(input: WhatIfInput): {
         scenarios.push(
           toScenario(
             `skip worst trade (${best.fill.side} ${best.fill.qty} ${best.fill.pair} on ${d})`,
-            'skip_worst',
+            "skip_worst",
             { skipped_order_id: best.fill.id },
             best.replay,
           ),
@@ -348,21 +350,21 @@ export function runWhatIf(input: WhatIfInput): {
     null,
   );
   if (!best || best.delta_return_pp <= 0.05) {
-    const closest = best ? ` — closest was ${best.name} at ${pct(best.return_pct / 100)}` : '';
+    const closest = best ? ` — closest was ${best.name} at ${pct(best.return_pct / 100)}` : "";
     summary = `No counterfactual beat your actual ${pct(actual.return_pct / 100)} return${closest}.`;
-  } else if (best.kind === 'sizing') {
+  } else if (best.kind === "sizing") {
     const k = best.params.k;
     summary =
       `Sizing every fill ${k}x would have turned ${pct(actual.return_pct / 100)} into ${pct(best.return_pct / 100)} ` +
       `(max drawdown ${pctMag(best.max_dd / 100)} vs ${pctMag(actual.max_dd / 100)} actual).`;
-  } else if (best.kind === 'stop_loss') {
+  } else if (best.kind === "stop_loss") {
     summary =
       `Honoring a ${best.params.stop_pct}% stop-loss would have turned ${pct(actual.return_pct / 100)} into ${pct(best.return_pct / 100)} ` +
       `and cut max drawdown from ${pctMag(actual.max_dd / 100)} to ${pctMag(best.max_dd / 100)}.`;
   } else {
-    const detail = best.name.startsWith('skip worst trade')
-      ? best.name.slice('skip worst trade'.length)
-      : '';
+    const detail = best.name.startsWith("skip worst trade")
+      ? best.name.slice("skip worst trade".length)
+      : "";
     summary =
       `Skipping your worst trade${detail} would have added +${best.delta_return_pp.toFixed(1)}pp of return ` +
       `(${pct(actual.return_pct / 100)} → ${pct(best.return_pct / 100)}).`;

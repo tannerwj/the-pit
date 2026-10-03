@@ -16,27 +16,25 @@
 //
 // All tests are deterministic: no `agent.*` steps, so no model is configured.
 
-import type { E2EConfig } from 'e2e';
-import { web } from '@e2e-dev/web';
+import type { E2EConfig } from "e2e";
+import { web } from "@e2e-dev/web";
 
-const PROD_URL = process.env.E2E_PROD_URL ?? 'https://the-pit.twj.workers.dev';
+const PROD_URL = process.env.E2E_PROD_URL ?? "https://the-pit.twj.workers.dev";
 const CDP_URL = process.env.E2E_CDP_URL;
 
 export default {
-  tests: 'tests/e2e/**/*.e2e.ts',
+  tests: "tests/e2e/**/*.e2e.ts",
   workers: 1,
   timeout: 120_000,
   targets: [
     {
-      name: 'prod-ui',
-      engine: web(
-        CDP_URL ? { connect: { cdpEndpoint: () => CDP_URL as string } } : {},
-      ),
+      name: "prod-ui",
+      engine: web(CDP_URL ? { connect: { cdpEndpoint: () => CDP_URL as string } } : {}),
       app: { url: PROD_URL },
     },
     // Engine-less: API tests (fetch + expect) open no browser. Tests read
     // the base URL from the environment and select via `platforms`.
-    { name: 'prod-api', platform: 'node' },
-    { name: 'local-api', platform: 'local' },
+    { name: "prod-api", platform: "node" },
+    { name: "local-api", platform: "local" },
   ],
 } satisfies E2EConfig;

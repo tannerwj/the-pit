@@ -5,12 +5,12 @@ published to any registry. Approval needed per registry before submitting.
 
 ## What's prepared
 
-| Registry | File | How it publishes |
-|---|---|---|
-| Official MCP registry (`registry.modelcontextprotocol.io`) | `official-mcp-registry/server.json` | `mcp-publisher` CLI (GitHub OIDC namespace auth, reverse-DNS name) |
-| Smithery | `smithery/smithery.yaml` + listing copy below | `smithery` CLI publish |
-| Glama | `glama/glama.md` | dashboard / submission form |
-| PulseMCP | `pulsemcp/pulsemcp.md` | submission form |
+| Registry                                                   | File                                          | How it publishes                                                   |
+| ---------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| Official MCP registry (`registry.modelcontextprotocol.io`) | `official-mcp-registry/server.json`           | `mcp-publisher` CLI (GitHub OIDC namespace auth, reverse-DNS name) |
+| Smithery                                                   | `smithery/smithery.yaml` + listing copy below | `smithery` CLI publish                                             |
+| Glama                                                      | `glama/glama.md`                              | dashboard / submission form                                        |
+| PulseMCP                                                   | `pulsemcp/pulsemcp.md`                        | submission form                                                    |
 
 ## Referral / tracking fields
 

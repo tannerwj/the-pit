@@ -6,22 +6,17 @@
 // per trade like live). Pure and stateless: nothing is written to D1 — no
 // orders, positions, or entries are created. Paper only.
 
-import type { Env } from '../lib/types';
-import { requireAgent, json, err } from '../lib/auth';
+import type { Env } from "../lib/types";
+import { requireAgent, json, err } from "../lib/auth";
 import {
   runBacktestReplay,
   backtestStats,
   backtestSummary,
   type BacktestTradeInput,
   type BacktestTradeResult,
-} from '../lib/backtest';
-import { downsamplePoints } from '../lib/whatif';
-import {
-  quotesForTimeline,
-  normalizeDbPair,
-  marketSeries,
-  type MarketPoint,
-} from '../lib/history';
+} from "../lib/backtest";
+import { downsamplePoints } from "../lib/whatif";
+import { quotesForTimeline, normalizeDbPair, marketSeries, type MarketPoint } from "../lib/history";
 
 const MAX_TRADES = 500;
 const MAX_POINTS = 120;
@@ -60,13 +55,16 @@ function parseTrade(
   now: number,
 ): { trade: BacktestTradeInput } | { error: string } {
   const fail = (m: string) => ({ error: `trades[${index}]: ${m}` });
-  if (typeof raw !== 'object' || raw === null) return fail('must be an object');
+  if (typeof raw !== "object" || raw === null) return fail("must be an object");
   const t = raw as RawTrade;
 
   const pair = normalizeDbPair(t.pair);
-  if (!pair) return fail('pair must be one of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form)');
+  if (!pair)
+    return fail(
+      'pair must be one of BTC/USD, ETH/USD, SOL/USD, XRP/USD, DOGE/USD ("/" or "-" form)',
+    );
 
-  if (t.side !== 'long' && t.side !== 'short') {
+  if (t.side !== "long" && t.side !== "short") {
     return fail('side must be "long" or "short"');
   }
 
@@ -75,35 +73,32 @@ function parseTrade(
   const hasQty = qtyRaw !== undefined && qtyRaw !== null;
   const hasNotional = notionalRaw !== undefined && notionalRaw !== null;
   if (hasQty === hasNotional) {
-    return fail('exactly one of qty (base units) or notional (USD) is required');
+    return fail("exactly one of qty (base units) or notional (USD) is required");
   }
   let qty: number | null = null;
   let notional: number | null = null;
   if (hasQty) {
-    if (typeof qtyRaw !== 'number' || !Number.isFinite(qtyRaw) || qtyRaw <= 0) {
-      return fail('qty must be a positive number of base units');
+    if (typeof qtyRaw !== "number" || !Number.isFinite(qtyRaw) || qtyRaw <= 0) {
+      return fail("qty must be a positive number of base units");
     }
     qty = qtyRaw;
   } else {
-    if (typeof notionalRaw !== 'number' || !Number.isFinite(notionalRaw) || notionalRaw <= 0) {
-      return fail('notional must be a positive USD amount');
+    if (typeof notionalRaw !== "number" || !Number.isFinite(notionalRaw) || notionalRaw <= 0) {
+      return fail("notional must be a positive USD amount");
     }
     notional = notionalRaw;
   }
 
   const ts = t.timestamp;
-  if (typeof ts !== 'number' || !Number.isInteger(ts) || ts <= 0) {
-    return fail('timestamp must be a positive integer unix-ms timestamp');
+  if (typeof ts !== "number" || !Number.isInteger(ts) || ts <= 0) {
+    return fail("timestamp must be a positive integer unix-ms timestamp");
   }
-  if (ts > now) return fail('timestamp is in the future');
+  if (ts > now) return fail("timestamp is in the future");
 
   return { trade: { pair, side: t.side, qty, notional, ts } };
 }
 
-export async function postBacktest(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function postBacktest(req: Request, env: Env): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
 
@@ -111,11 +106,11 @@ export async function postBacktest(
   try {
     body = await req.json();
   } catch {
-    return err('bad_request', 'Invalid JSON body', 400);
+    return err("bad_request", "Invalid JSON body", 400);
   }
 
   const parsed = parseReplayBody(body, Date.now(), MAX_TRADES);
-  if ('error' in parsed) return err('bad_request', parsed.error, parsed.status);
+  if ("error" in parsed) return err("bad_request", parsed.error, parsed.status);
   const payload = await runReplay(env, parsed.startingCapital, parsed.trades, {
     from: parsed.from,
     to: parsed.to,
@@ -138,33 +133,32 @@ export interface ReplayBody {
   to: number | null;
 }
 
-const isUnixMs = (v: unknown): v is number =>
-  typeof v === 'number' && Number.isInteger(v) && v > 0;
+const isUnixMs = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0;
 
 export function parseReplayBody(
   body: unknown,
   now: number,
   maxTrades: number,
 ): ReplayBody | { error: string; status: number } {
-  if (typeof body !== 'object' || body === null) {
-    return { error: 'Request body must be a JSON object', status: 400 };
+  if (typeof body !== "object" || body === null) {
+    return { error: "Request body must be a JSON object", status: 400 };
   }
   const b = body as Record<string, unknown>;
 
-  const capRaw = b['starting_capital'];
+  const capRaw = b["starting_capital"];
   const startingCapital = capRaw === undefined ? 10_000 : capRaw;
   if (
-    typeof startingCapital !== 'number' ||
+    typeof startingCapital !== "number" ||
     !Number.isFinite(startingCapital) ||
     startingCapital < 1000 ||
     startingCapital > 100000
   ) {
-    return { error: 'starting_capital must be between 1000 and 100000', status: 422 };
+    return { error: "starting_capital must be between 1000 and 100000", status: 422 };
   }
 
-  const tradesRaw = b['trades'];
+  const tradesRaw = b["trades"];
   if (!Array.isArray(tradesRaw)) {
-    return { error: 'trades must be an array', status: 422 };
+    return { error: "trades must be an array", status: 422 };
   }
   if (tradesRaw.length > maxTrades) {
     return { error: `trades is capped at ${maxTrades} per request`, status: 422 };
@@ -173,26 +167,26 @@ export function parseReplayBody(
   const trades: BacktestTradeInput[] = [];
   for (let i = 0; i < tradesRaw.length; i++) {
     const parsed = parseTrade(tradesRaw[i], i, now);
-    if ('error' in parsed) return { error: parsed.error, status: 422 };
+    if ("error" in parsed) return { error: parsed.error, status: 422 };
     trades.push(parsed.trade);
   }
 
   let from: number | null = null;
   let to: number | null = null;
-  if (b['from'] !== undefined && b['from'] !== null) {
-    if (!isUnixMs(b['from'])) {
-      return { error: 'from must be a positive integer unix-ms timestamp', status: 422 };
+  if (b["from"] !== undefined && b["from"] !== null) {
+    if (!isUnixMs(b["from"])) {
+      return { error: "from must be a positive integer unix-ms timestamp", status: 422 };
     }
-    from = b['from'] as number;
+    from = b["from"] as number;
   }
-  if (b['to'] !== undefined && b['to'] !== null) {
-    if (!isUnixMs(b['to'])) {
-      return { error: 'to must be a positive integer unix-ms timestamp', status: 422 };
+  if (b["to"] !== undefined && b["to"] !== null) {
+    if (!isUnixMs(b["to"])) {
+      return { error: "to must be a positive integer unix-ms timestamp", status: 422 };
     }
-    to = b['to'] as number;
+    to = b["to"] as number;
   }
   if (from !== null && to !== null && from > to) {
-    return { error: 'from must not be after to', status: 422 };
+    return { error: "from must not be after to", status: 422 };
   }
   return { startingCapital, trades, from, to };
 }
@@ -213,9 +207,7 @@ export async function runReplay(
   // A `to` before the window start is meaningless — clamp, never error here
   // (from > to is already a 422 in parseReplayBody).
   const windowTo = Math.max(opts?.to ?? lastTradeTs, windowFrom);
-  const timeline = [...new Set([windowFrom, ...tradeTs, windowTo])].sort(
-    (a, b) => a - b,
-  );
+  const timeline = [...new Set([windowFrom, ...tradeTs, windowTo])].sort((a, b) => a - b);
 
   const pairs = [...new Set(trades.map((t) => t.pair))];
   const quotesByPair = new Map();
@@ -265,17 +257,15 @@ export async function runReplay(
     }),
     honesty: {
       fill_model:
-        'market fills at the historical touch-side quote + 5bps slippage — the same model as live trading',
-      lookahead:
-        'none — every fill uses the nearest quote at-or-before its timestamp',
-      leverage:
-        '3x max enforced per trade, like live; breaching trades are skipped and reported',
-      liquidation: 'not simulated',
+        "market fills at the historical touch-side quote + 5bps slippage — the same model as live trading",
+      lookahead: "none — every fill uses the nearest quote at-or-before its timestamp",
+      leverage: "3x max enforced per trade, like live; breaching trades are skipped and reported",
+      liquidation: "not simulated",
       history:
-        '1-minute live bid/ask from 2026-09-20; hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread)',
-      writes: 'none — backtests never create orders, positions, or entries',
+        "1-minute live bid/ask from 2026-09-20; hourly backfilled Coinbase candles before that (bid=ask=close — public candles carry no spread)",
+      writes: "none — backtests never create orders, positions, or entries",
       replay:
-        'replay display is indicative — equity and unrealized P&L interpolate the historical market series at the playhead so the numbers move continuously; fills and final stats always use the strict nearest quote at-or-before each timestamp',
+        "replay display is indicative — equity and unrealized P&L interpolate the historical market series at the playhead so the numbers move continuously; fills and final stats always use the strict nearest quote at-or-before each timestamp",
     },
   };
 }

@@ -3,7 +3,7 @@ on:
   push:
     branches: [master]
   schedule:
-    - cron: '23 9 * * *' # daily production check
+    - cron: "23 9 * * *" # daily production check
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
       # and is never run in CI.
       - run: npx e2e run --target prod-ui --target prod-api --reporter list,junit
         env:
-          E2E_TELEMETRY_DISABLED: '1'
+          E2E_TELEMETRY_DISABLED: "1"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:

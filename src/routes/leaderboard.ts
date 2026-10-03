@@ -1,6 +1,6 @@
-import type { Env } from '../lib/types';
-import { json, err } from '../lib/auth';
-import { q, q1 } from '../lib/db';
+import type { Env } from "../lib/types";
+import { json, err } from "../lib/auth";
+import { q, q1 } from "../lib/db";
 
 export interface LeaderboardEntry {
   rank: number;
@@ -20,11 +20,7 @@ export async function leaderboardForSeason(
   env: Env,
   seasonId: string,
 ): Promise<LeaderboardEntry[] | null> {
-  const season = await q1<{ id: string }>(
-    env.DB,
-    'SELECT id FROM seasons WHERE id = ?',
-    seasonId,
-  );
+  const season = await q1<{ id: string }>(env.DB, "SELECT id FROM seasons WHERE id = ?", seasonId);
   if (!season) return null;
 
   const rows = await q<{
@@ -68,18 +64,15 @@ export async function leaderboardForSeason(
 }
 
 // GET /api/v1/leaderboard?season_id=&pair= (public)
-export async function getLeaderboard(
-  req: Request,
-  env: Env,
-): Promise<Response> {
+export async function getLeaderboard(req: Request, env: Env): Promise<Response> {
   const params = new URL(req.url).searchParams;
-  const seasonId = params.get('season_id');
+  const seasonId = params.get("season_id");
   if (!seasonId) {
-    return err('season_id_required', 'season_id query param is required', 400);
+    return err("season_id_required", "season_id query param is required", 400);
   }
   const entries = await leaderboardForSeason(env, seasonId);
   if (!entries) {
-    return err('season_not_found', 'Season not found', 404);
+    return err("season_not_found", "Season not found", 404);
   }
   return json({ season_id: seasonId, entries });
 }

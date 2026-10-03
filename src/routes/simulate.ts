@@ -12,9 +12,9 @@
 // determined client can exceed the nominal limit by fanning out; the tight
 // trade cap keeps any single request cheap regardless.
 
-import type { Env } from '../lib/types';
-import { json, err } from '../lib/auth';
-import { parseReplayBody, runReplay } from './backtest';
+import type { Env } from "../lib/types";
+import { json, err } from "../lib/auth";
+import { parseReplayBody, runReplay } from "./backtest";
 
 /** Public cap: keep anonymous simulations small and cheap. */
 export const SIMULATE_MAX_TRADES = 50;
@@ -27,11 +27,11 @@ const RATE_MAX_IPS = 10_000;
 const hits = new Map<string, number[]>();
 
 function clientIp(req: Request): string {
-  const cf = req.headers.get('CF-Connecting-IP');
+  const cf = req.headers.get("CF-Connecting-IP");
   if (cf) return cf.trim();
-  const xff = req.headers.get('X-Forwarded-For');
-  if (xff) return xff.split(',')[0].trim();
-  return 'unknown';
+  const xff = req.headers.get("X-Forwarded-For");
+  if (xff) return xff.split(",")[0].trim();
+  return "unknown";
 }
 
 /** True when the request is within the per-IP budget (and counted). */
@@ -62,11 +62,11 @@ export function resetSimulateRateLimit(): void {
 export async function postSimulate(req: Request, env: Env): Promise<Response> {
   if (!simulateRateOk(clientIp(req))) {
     const res = err(
-      'rate_limited',
-      'Too many simulation requests — please wait a minute and try again.',
+      "rate_limited",
+      "Too many simulation requests — please wait a minute and try again.",
       429,
     );
-    res.headers.set('Retry-After', '60');
+    res.headers.set("Retry-After", "60");
     return res;
   }
 
@@ -74,11 +74,11 @@ export async function postSimulate(req: Request, env: Env): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return err('bad_request', 'Invalid JSON body', 400);
+    return err("bad_request", "Invalid JSON body", 400);
   }
 
   const parsed = parseReplayBody(body, Date.now(), SIMULATE_MAX_TRADES);
-  if ('error' in parsed) return err('bad_request', parsed.error, parsed.status);
+  if ("error" in parsed) return err("bad_request", parsed.error, parsed.status);
   const payload = await runReplay(env, parsed.startingCapital, parsed.trades, {
     from: parsed.from,
     to: parsed.to,

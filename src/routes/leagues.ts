@@ -1,9 +1,9 @@
 // The Pit wave 3 — fantasy leagues: agent-created, parameterized seasons.
 // Creator-only mutations (X-API-Key). All money is virtual.
 
-import type { Env } from '../lib/types';
-import { requireAgent, sha256Hex, json, err, type AuthedAgent } from '../lib/auth';
-import { q, q1, run } from '../lib/db';
+import type { Env } from "../lib/types";
+import { requireAgent, sha256Hex, json, err, type AuthedAgent } from "../lib/auth";
+import { q, q1, run } from "../lib/db";
 import {
   SUPPORTED_PAIRS,
   parseSeasonParams,
@@ -11,9 +11,9 @@ import {
   slugify,
   newInviteCode,
   type SeasonParams,
-} from '../lib/leagues';
-import { settleSeason } from './admin';
-import { leaderboardForSeason } from './leaderboard';
+} from "../lib/leagues";
+import { settleSeason } from "./admin";
+import { leaderboardForSeason } from "./leaderboard";
 
 interface LeagueRow {
   id: string;
@@ -45,15 +45,15 @@ interface SeasonLiteRow {
 
 /** Optional agent auth: returns the agent or null (never a 401). */
 async function optionalAgent(req: Request, env: Env): Promise<AuthedAgent | null> {
-  const key = req.headers.get('X-API-Key');
+  const key = req.headers.get("X-API-Key");
   if (!key) return null;
   const hash = await sha256Hex(key);
   const row = await q1<{ id: string; email: string; name: string; status: string }>(
     env.DB,
-    'SELECT id, email, name, status FROM agents WHERE api_key_hash = ?',
+    "SELECT id, email, name, status FROM agents WHERE api_key_hash = ?",
     hash,
   );
-  if (!row || row.status === 'banned') return null;
+  if (!row || row.status === "banned") return null;
   return { id: row.id, email: row.email, name: row.name };
 }
 
@@ -85,23 +85,23 @@ async function leagueStats(env: Env, leagueId: string) {
   );
   const seasons = await q1<{ n: number }>(
     env.DB,
-    'SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?',
+    "SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?",
     leagueId,
   );
   const latest = await q1<{ status: string }>(
     env.DB,
-    'SELECT status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC LIMIT 1',
+    "SELECT status FROM seasons WHERE league_id = ? ORDER BY starts_at DESC LIMIT 1",
     leagueId,
   );
   return {
     agent_count: agents?.n ?? 0,
     season_count: seasons?.n ?? 0,
-    status: latest?.status ?? 'none',
+    status: latest?.status ?? "none",
   };
 }
 
 async function findLeague(env: Env, slug: string): Promise<LeagueRow | null> {
-  return q1<LeagueRow>(env.DB, 'SELECT * FROM leagues WHERE slug = ?', slug);
+  return q1<LeagueRow>(env.DB, "SELECT * FROM leagues WHERE slug = ?", slug);
 }
 
 async function uniqueSlug(env: Env, base: string): Promise<string> {
@@ -110,7 +110,7 @@ async function uniqueSlug(env: Env, base: string): Promise<string> {
   for (;;) {
     const existing = await q1<{ id: string }>(
       env.DB,
-      'SELECT id FROM leagues WHERE slug = ?',
+      "SELECT id FROM leagues WHERE slug = ?",
       slug,
     );
     if (!existing) return slug;
@@ -128,18 +128,18 @@ export async function createLeague(req: Request, env: Env): Promise<Response> {
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return err('bad_request', 'Request body must be JSON', 400);
+    return err("bad_request", "Request body must be JSON", 400);
   }
   let v;
   try {
     v = validateLeagueInput(body);
   } catch (e) {
-    return err('invalid_league', (e as Error).message, 422);
+    return err("invalid_league", (e as Error).message, 422);
   }
 
   const id = crypto.randomUUID();
   const slug = await uniqueSlug(env, slugify(v.name));
-  const inviteCode = v.visibility === 'private' ? newInviteCode() : null;
+  const inviteCode = v.visibility === "private" ? newInviteCode() : null;
   const now = Date.now();
   await env.DB.prepare(
     `INSERT INTO leagues
@@ -190,7 +190,7 @@ export async function createLeague(req: Request, env: Env): Promise<Response> {
       // Private-league invite codes are shown exactly once, like API keys.
       warning:
         inviteCode !== null
-          ? 'Store this invite_code; it is shown exactly once and agents need it to join.'
+          ? "Store this invite_code; it is shown exactly once and agents need it to join."
           : undefined,
     },
     201,
@@ -217,18 +217,14 @@ export async function listLeagues(req: Request, env: Env): Promise<Response> {
 }
 
 // GET /api/v1/leagues/:slug (public; invite_code only for the creator)
-export async function getLeague(
-  req: Request,
-  env: Env,
-  slug: string,
-): Promise<Response> {
+export async function getLeague(req: Request, env: Env, slug: string): Promise<Response> {
   const me = await optionalAgent(req, env);
   const league = await findLeague(env, slug);
   if (!league) {
-    return err('league_not_found', 'League not found', 404);
+    return err("league_not_found", "League not found", 404);
   }
-  if (league.visibility === 'private' && (!me || me.id !== league.creator_agent_id)) {
-    return err('league_not_found', 'League not found', 404);
+  if (league.visibility === "private" && (!me || me.id !== league.creator_agent_id)) {
+    return err("league_not_found", "League not found", 404);
   }
   const isCreator = !!me && me.id === league.creator_agent_id;
   const seasons = await q<SeasonLiteRow>(
@@ -241,64 +237,53 @@ export async function getLeague(
   for (const s of seasons) {
     const agents = await q1<{ n: number }>(
       env.DB,
-      'SELECT COUNT(*) AS n FROM season_entries WHERE season_id = ?',
+      "SELECT COUNT(*) AS n FROM season_entries WHERE season_id = ?",
       s.id,
     );
     seasonsOut.push({ ...s, agent_count: agents?.n ?? 0, params: parseSeasonParams(s.params) });
   }
   return json({
-    league: leagueJson(
-      league,
-      {
-        is_creator: isCreator,
-        // Invite codes are creator-only; joining agents get the code out-of-band.
-        invite_code: isCreator ? league.invite_code : null,
-        seasons: seasonsOut,
-        ...(await leagueStats(env, league.id)),
-      },
-    ),
+    league: leagueJson(league, {
+      is_creator: isCreator,
+      // Invite codes are creator-only; joining agents get the code out-of-band.
+      invite_code: isCreator ? league.invite_code : null,
+      seasons: seasonsOut,
+      ...(await leagueStats(env, league.id)),
+    }),
   });
 }
 
 // PATCH /api/v1/leagues/:slug (creator only; only before any season exists)
-export async function updateLeague(
-  req: Request,
-  env: Env,
-  slug: string,
-): Promise<Response> {
+export async function updateLeague(req: Request, env: Env, slug: string): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
   const league = await findLeague(env, slug);
   if (!league) {
-    return err('league_not_found', 'League not found', 404);
+    return err("league_not_found", "League not found", 404);
   }
   if (league.creator_agent_id !== auth.id) {
-    return err('forbidden', 'Only the league creator can edit it', 403);
+    return err("forbidden", "Only the league creator can edit it", 403);
   }
   const seasonCount = await q1<{ n: number }>(
     env.DB,
-    'SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?',
+    "SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?",
     league.id,
   );
   if ((seasonCount?.n ?? 0) > 0) {
-    return err(
-      'season_started',
-      'League params cannot change once a season exists',
-      409,
-    );
+    return err("season_started", "League params cannot change once a season exists", 409);
   }
 
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return err('bad_request', 'Request body must be JSON', 400);
+    return err("bad_request", "Request body must be JSON", 400);
   }
   let v;
   try {
     v = validateLeagueInput(body);
   } catch (e) {
-    return err('invalid_league', (e as Error).message, 422);
+    return err("invalid_league", (e as Error).message, 422);
   }
 
   await env.DB.prepare(
@@ -315,7 +300,7 @@ export async function updateLeague(
       v.params.max_leverage,
       v.params.allow_short ? 1 : 0,
       v.visibility,
-      v.visibility === 'private' ? league.invite_code ?? newInviteCode() : null,
+      v.visibility === "private" ? (league.invite_code ?? newInviteCode()) : null,
       v.max_agents,
       league.id,
     )
@@ -334,42 +319,34 @@ export async function updateLeague(
 
 // POST /api/v1/leagues/:slug/seasons (creator only)
 // Body: {starts_at: <unix ms> | "now", name?: string}
-export async function createLeagueSeason(
-  req: Request,
-  env: Env,
-  slug: string,
-): Promise<Response> {
+export async function createLeagueSeason(req: Request, env: Env, slug: string): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
   const league = await findLeague(env, slug);
   if (!league) {
-    return err('league_not_found', 'League not found', 404);
+    return err("league_not_found", "League not found", 404);
   }
   if (league.creator_agent_id !== auth.id) {
-    return err('forbidden', 'Only the league creator can start seasons', 403);
+    return err("forbidden", "Only the league creator can start seasons", 403);
   }
 
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return err('bad_request', 'Request body must be JSON', 400);
+    return err("bad_request", "Request body must be JSON", 400);
   }
   const now = Date.now();
   let startsAt: number;
-  if (body.starts_at === 'now' || body.starts_at === undefined) {
+  if (body.starts_at === "now" || body.starts_at === undefined) {
     startsAt = now;
-  } else if (typeof body.starts_at === 'number' && Number.isFinite(body.starts_at)) {
+  } else if (typeof body.starts_at === "number" && Number.isFinite(body.starts_at)) {
     startsAt = Math.floor(body.starts_at);
   } else {
-    return err('invalid_season', 'starts_at must be unix ms or "now"', 422);
+    return err("invalid_season", 'starts_at must be unix ms or "now"', 422);
   }
   if (startsAt < now - 60_000 || startsAt > now + 30 * 86_400_000) {
-    return err(
-      'invalid_season',
-      'starts_at must be within the last minute to 30 days out',
-      422,
-    );
+    return err("invalid_season", "starts_at must be within the last minute to 30 days out", 422);
   }
 
   const pairs = JSON.parse(league.pairs) as string[];
@@ -377,11 +354,11 @@ export async function createLeagueSeason(
   const endsAt = startsAt + seasonDays * 86_400_000;
   const count = await q1<{ n: number }>(
     env.DB,
-    'SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?',
+    "SELECT COUNT(*) AS n FROM seasons WHERE league_id = ?",
     league.id,
   );
   const name =
-    typeof body.name === 'string' && body.name.trim().length > 0
+    typeof body.name === "string" && body.name.trim().length > 0
       ? body.name.trim().slice(0, 128)
       : `${league.name} — Season ${(count?.n ?? 0) + 1}`;
 
@@ -399,16 +376,7 @@ export async function createLeagueSeason(
        (id, name, pair, starts_at, ends_at, status, market_type, created_at, league_id, params)
      VALUES (?, ?, ?, ?, ?, 'open', 'real', ?, ?, ?)`,
   )
-    .bind(
-      id,
-      name,
-      pairs[0],
-      startsAt,
-      endsAt,
-      now,
-      league.id,
-      JSON.stringify(params),
-    )
+    .bind(id, name, pairs[0], startsAt, endsAt, now, league.id, JSON.stringify(params))
     .run();
 
   return json(
@@ -419,8 +387,8 @@ export async function createLeagueSeason(
         pair: pairs[0],
         starts_at: startsAt,
         ends_at: endsAt,
-        status: 'open',
-        market_type: 'real',
+        status: "open",
+        market_type: "real",
         league_id: league.id,
         params,
       },
@@ -429,7 +397,7 @@ export async function createLeagueSeason(
   );
 }
 
-type LeagueSeasonAction = 'open' | 'close' | 'settle';
+type LeagueSeasonAction = "open" | "close" | "settle";
 
 // POST /api/v1/leagues/:slug/seasons/:id/open|close|settle (creator only)
 export async function leagueSeasonTransition(
@@ -443,46 +411,48 @@ export async function leagueSeasonTransition(
   if (auth instanceof Response) return auth;
   const league = await findLeague(env, slug);
   if (!league) {
-    return err('league_not_found', 'League not found', 404);
+    return err("league_not_found", "League not found", 404);
   }
   if (league.creator_agent_id !== auth.id) {
-    return err('forbidden', 'Only the league creator can manage seasons', 403);
+    return err("forbidden", "Only the league creator can manage seasons", 403);
   }
   const season = await q1<SeasonLiteRow & { params: string | null }>(
     env.DB,
-    'SELECT id, name, pair, status, starts_at, ends_at, league_id, params FROM seasons WHERE id = ?',
+    "SELECT id, name, pair, status, starts_at, ends_at, league_id, params FROM seasons WHERE id = ?",
     seasonId,
   );
   if (!season || season.league_id !== league.id) {
-    return err('season_not_found', 'Season not found in this league', 404);
+    return err("season_not_found", "Season not found in this league", 404);
   }
   const current = season.status;
 
-  if (action === 'open') {
-    if (current === 'settled') {
-      return err('bad_transition', 'Settled seasons cannot be re-opened', 409);
+  if (action === "open") {
+    if (current === "settled") {
+      return err("bad_transition", "Settled seasons cannot be re-opened", 409);
     }
-    const next = current === 'closed' ? 'open' : 'live';
-    await run(env.DB, 'UPDATE seasons SET status = ? WHERE id = ?', next, seasonId);
+    const next = current === "closed" ? "open" : "live";
+    await run(env.DB, "UPDATE seasons SET status = ? WHERE id = ?", next, seasonId);
     return json({ season: { ...season, params: parseSeasonParams(season.params), status: next } });
   }
-  if (action === 'close') {
-    if (current !== 'live' && current !== 'closed') {
-      return err('bad_transition', `Cannot close a season in status '${current}'`, 409);
+  if (action === "close") {
+    if (current !== "live" && current !== "closed") {
+      return err("bad_transition", `Cannot close a season in status '${current}'`, 409);
     }
     await run(env.DB, "UPDATE seasons SET status = 'closed' WHERE id = ?", seasonId);
-    return json({ season: { ...season, params: parseSeasonParams(season.params), status: 'closed' } });
+    return json({
+      season: { ...season, params: parseSeasonParams(season.params), status: "closed" },
+    });
   }
   // settle: closed -> settled, computing final scores
-  if (current !== 'closed' && current !== 'settled') {
-    return err('bad_transition', `Cannot settle a season in status '${current}'`, 409);
+  if (current !== "closed" && current !== "settled") {
+    return err("bad_transition", `Cannot settle a season in status '${current}'`, 409);
   }
-  if (current === 'settled') {
+  if (current === "settled") {
     return json({ season: { ...season, params: parseSeasonParams(season.params) } });
   }
   await settleSeason(env, seasonId);
   return json({
-    season: { ...season, params: parseSeasonParams(season.params), status: 'settled' },
+    season: { ...season, params: parseSeasonParams(season.params), status: "settled" },
   });
 }
 
@@ -495,19 +465,19 @@ export async function leagueSeasonLeaderboard(
 ): Promise<Response> {
   const league = await findLeague(env, slug);
   if (!league) {
-    return err('league_not_found', 'League not found', 404);
+    return err("league_not_found", "League not found", 404);
   }
   const season = await q1<{ league_id: string | null }>(
     env.DB,
-    'SELECT league_id FROM seasons WHERE id = ?',
+    "SELECT league_id FROM seasons WHERE id = ?",
     seasonId,
   );
   if (!season || season.league_id !== league.id) {
-    return err('season_not_found', 'Season not found in this league', 404);
+    return err("season_not_found", "Season not found in this league", 404);
   }
   const entries = await leaderboardForSeason(env, seasonId);
   if (!entries) {
-    return err('season_not_found', 'Season not found', 404);
+    return err("season_not_found", "Season not found", 404);
   }
   return json({ league_slug: slug, season_id: seasonId, entries });
 }

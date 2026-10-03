@@ -9,20 +9,11 @@
 //     skipped and reported, mirroring a live 422 rejection)
 //   - liquidation is NOT simulated (same documented choice as what-if)
 
-import {
-  quoteAt,
-  type WhatIfQuote,
-} from './whatif';
-import {
-  applyFill,
-  marketFillPrice,
-  checkLeverage,
-  midPrice,
-  MAX_LEVERAGE,
-} from './engine';
-import { computeAlphaScore, type EquityPoint } from './scoring';
+import { quoteAt, type WhatIfQuote } from "./whatif";
+import { applyFill, marketFillPrice, checkLeverage, midPrice, MAX_LEVERAGE } from "./engine";
+import { computeAlphaScore, type EquityPoint } from "./scoring";
 
-export type BacktestSide = 'long' | 'short';
+export type BacktestSide = "long" | "short";
 
 export interface BacktestTradeInput {
   pair: string; // DB form, e.g. 'BTC/USD'
@@ -41,9 +32,9 @@ export interface BacktestTradeResult {
   qty: number;
   notional_usd: number;
   ts: number;
-  status: 'filled' | 'rejected';
+  status: "filled" | "rejected";
   fill_price: number | null;
-  reject_reason: 'no_history' | 'leverage' | null;
+  reject_reason: "no_history" | "leverage" | null;
   /** Cumulative realized PnL after this trade. */
   realized_pnl: number;
   equity_after: number;
@@ -67,8 +58,7 @@ export interface BacktestResult {
   rejected: number;
 }
 
-const toEngineSide = (s: BacktestSide): 'buy' | 'sell' =>
-  s === 'long' ? 'buy' : 'sell';
+const toEngineSide = (s: BacktestSide): "buy" | "sell" => (s === "long" ? "buy" : "sell");
 
 /** Replay hypothetical market trades. Pure function. */
 export function runBacktestReplay(args: BacktestArgs): BacktestResult {
@@ -112,9 +102,9 @@ export function runBacktestReplay(args: BacktestArgs): BacktestResult {
           qty: tr.qty ?? 0,
           notional_usd: tr.notional ?? 0,
           ts: tr.ts,
-          status: 'rejected',
+          status: "rejected",
           fill_price: null,
-          reject_reason: 'no_history',
+          reject_reason: "no_history",
           realized_pnl: realizedPnl,
           equity_after: equityNow(t),
         });
@@ -122,9 +112,7 @@ export function runBacktestReplay(args: BacktestArgs): BacktestResult {
       }
       const fillPrice = marketFillPrice(qq, engineSide);
       const qty =
-        tr.qty !== null && tr.qty !== undefined
-          ? tr.qty
-          : (tr.notional as number) / fillPrice;
+        tr.qty !== null && tr.qty !== undefined ? tr.qty : (tr.notional as number) / fillPrice;
       const pos = positions.get(tr.pair) ?? { qty: 0, avgPrice: 0 };
       const lev = checkLeverage({
         cash,
@@ -143,9 +131,9 @@ export function runBacktestReplay(args: BacktestArgs): BacktestResult {
           qty,
           notional_usd: qty * fillPrice,
           ts: tr.ts,
-          status: 'rejected',
+          status: "rejected",
           fill_price: fillPrice,
-          reject_reason: 'leverage',
+          reject_reason: "leverage",
           realized_pnl: realizedPnl,
           equity_after: equityNow(t),
         });
@@ -163,7 +151,7 @@ export function runBacktestReplay(args: BacktestArgs): BacktestResult {
         qty,
         notional_usd: qty * fillPrice,
         ts: tr.ts,
-        status: 'filled',
+        status: "filled",
         fill_price: fillPrice,
         reject_reason: null,
         realized_pnl: realizedPnl,
@@ -192,10 +180,7 @@ export interface BacktestStats {
   sharpe: number;
 }
 
-export function backtestStats(
-  points: EquityPoint[],
-  startingCapital: number,
-): BacktestStats {
+export function backtestStats(points: EquityPoint[], startingCapital: number): BacktestStats {
   const c = computeAlphaScore(points, startingCapital);
   return {
     return_pct: c.totalReturn * 100,
@@ -204,10 +189,8 @@ export function backtestStats(
   };
 }
 
-const money = (x: number): string =>
-  '$' + Math.round(x).toLocaleString('en-US');
-const pct1 = (x: number): string =>
-  `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)}%`;
+const money = (x: number): string => "$" + Math.round(x).toLocaleString("en-US");
+const pct1 = (x: number): string => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}%`;
 // Drawdown is a magnitude (0..1), never signed: "max drawdown 8.1%", not "+8.1%".
 const pctMag = (x: number): string => `${(Math.abs(x) * 100).toFixed(1)}%`;
 
@@ -225,19 +208,19 @@ export function backtestSummary(args: {
   toTs: number | null;
 }): string {
   const month = (ts: number): string =>
-    new Date(ts).toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    new Date(ts).toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
   const span =
     args.fromTs !== null && args.toTs !== null
       ? ` from ${month(args.fromTs)} to ${month(args.toTs)}`
-      : '';
-  const pairs = args.pairs.length > 0 ? ` on ${args.pairs.join(', ')}` : '';
-  const tradeWord = args.filled === 1 ? 'trade' : 'trades';
+      : "";
+  const pairs = args.pairs.length > 0 ? ` on ${args.pairs.join(", ")}` : "";
+  const tradeWord = args.filled === 1 ? "trade" : "trades";
   let s =
     `${args.filled} hypothetical ${tradeWord}${pairs}${span} would have turned ` +
     `${money(args.startingCapital)} into ${money(args.finalEquity)} ` +
     `(${pct1(args.returnPct / 100)}, max drawdown ${pctMag(args.maxDd / 100)}, Sharpe ${args.sharpe.toFixed(2)}).`;
   if (args.rejected > 0) {
-    s += ` ${args.rejected} trade${args.rejected === 1 ? ' was' : 's were'} skipped (no history or 3x leverage cap).`;
+    s += ` ${args.rejected} trade${args.rejected === 1 ? " was" : "s were"} skipped (no history or 3x leverage cap).`;
   }
   return s;
 }

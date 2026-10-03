@@ -4,17 +4,12 @@
 // Honesty: no lookahead (nearest quote at-or-before each timestamp), fills at
 // historical bid/ask + 5bps slippage, leverage caps not enforced in replay.
 
-import type { Env, Side } from '../lib/types';
-import { requireAgent, json, err } from '../lib/auth';
-import { q, q1 } from '../lib/db';
-import {
-  replayCounterfactual,
-  runWhatIf,
-  downsamplePoints,
-  type WhatIfFill,
-} from '../lib/whatif';
-import { quotesForTimeline, type HistoryQuote } from '../lib/history';
-import type { EquityPoint } from '../lib/scoring';
+import type { Env, Side } from "../lib/types";
+import { requireAgent, json, err } from "../lib/auth";
+import { q, q1 } from "../lib/db";
+import { replayCounterfactual, runWhatIf, downsamplePoints, type WhatIfFill } from "../lib/whatif";
+import { quotesForTimeline, type HistoryQuote } from "../lib/history";
+import type { EquityPoint } from "../lib/scoring";
 
 const MAX_TIMELINE_POINTS = 400;
 const MAX_SNAPSHOT_POINTS = 240;
@@ -32,7 +27,7 @@ interface FillRow {
   pair: string;
   side: Side;
   qty: number;
-  type: 'market' | 'limit';
+  type: "market" | "limit";
   limit_price: number | null;
   filled_at: number;
 }
@@ -44,9 +39,9 @@ function parseList(
   max: number,
   name: string,
 ): { values: number[] } | { error: string } {
-  if (raw === null || raw.trim() === '') return { values: def };
+  if (raw === null || raw.trim() === "") return { values: def };
   const values: number[] = [];
-  for (const part of raw.split(',')) {
+  for (const part of raw.split(",")) {
     const v = Number(part.trim());
     if (!Number.isFinite(v) || v <= min || v > max) {
       return { error: `"${name}" values must be in (${min}, ${max}]` };
@@ -68,36 +63,37 @@ function downsampleTs(ts: number[], n: number): number[] {
   return [...new Set(out)];
 }
 
-export async function getWhatIf(
-  req: Request,
-  env: Env,
-  entryId: string,
-): Promise<Response> {
+export async function getWhatIf(req: Request, env: Env, entryId: string): Promise<Response> {
   const auth = await requireAgent(req, env);
   if (auth instanceof Response) return auth;
 
   const entry = await q1<EntryRow>(
     env.DB,
-    'SELECT id, season_id, agent_id, starting_capital, entered_at FROM season_entries WHERE id = ?',
+    "SELECT id, season_id, agent_id, starting_capital, entered_at FROM season_entries WHERE id = ?",
     entryId,
   );
   if (!entry) {
-    return err('entry_not_found', 'Entry not found', 404);
+    return err("entry_not_found", "Entry not found", 404);
   }
   if (entry.agent_id !== auth.id) {
-    return err('forbidden', 'This entry belongs to another agent', 403);
+    return err("forbidden", "This entry belongs to another agent", 403);
   }
 
   const params = new URL(req.url).searchParams;
-  const kParsed = parseList(params.get('k'), [0.5, 2], 0, 10, 'k');
-  if ('error' in kParsed) return err('bad_request', kParsed.error, 400);
-  const stopParsed = parseList(params.get('stop_pct'), [10], 0, 100, 'stop_pct');
-  if ('error' in stopParsed) return err('bad_request', stopParsed.error, 400);
-  const skipWorstRaw = params.get('skip_worst');
+  const kParsed = parseList(params.get("k"), [0.5, 2], 0, 10, "k");
+  if ("error" in kParsed) return err("bad_request", kParsed.error, 400);
+  const stopParsed = parseList(params.get("stop_pct"), [10], 0, 100, "stop_pct");
+  if ("error" in stopParsed) return err("bad_request", stopParsed.error, 400);
+  const skipWorstRaw = params.get("skip_worst");
   const includeSkipWorst =
-    skipWorstRaw === null || skipWorstRaw === '' ? true : skipWorstRaw === '1';
-  if (skipWorstRaw !== null && skipWorstRaw !== '' && skipWorstRaw !== '1' && skipWorstRaw !== '0') {
-    return err('bad_request', '"skip_worst" must be 0 or 1', 400);
+    skipWorstRaw === null || skipWorstRaw === "" ? true : skipWorstRaw === "1";
+  if (
+    skipWorstRaw !== null &&
+    skipWorstRaw !== "" &&
+    skipWorstRaw !== "1" &&
+    skipWorstRaw !== "0"
+  ) {
+    return err("bad_request", '"skip_worst" must be 0 or 1', 400);
   }
 
   const fills = await q<FillRow>(
@@ -109,7 +105,7 @@ export async function getWhatIf(
   );
   const snapshots = await q<{ ts: number; equity: number }>(
     env.DB,
-    'SELECT ts, equity FROM equity_snapshots WHERE entry_id = ? ORDER BY ts ASC LIMIT 5000',
+    "SELECT ts, equity FROM equity_snapshots WHERE entry_id = ? ORDER BY ts ASC LIMIT 5000",
     entry.id,
   );
 
@@ -121,7 +117,7 @@ export async function getWhatIf(
 
   if (fills.length === 0) {
     // No fills: still report the actual curve so the response shape is stable.
-    const { computeAlphaScore } = await import('../lib/scoring');
+    const { computeAlphaScore } = await import("../lib/scoring");
     const c = computeAlphaScore(actualPoints, entry.starting_capital);
     return json({
       entry_id: entry.id,
@@ -134,7 +130,7 @@ export async function getWhatIf(
         points: downsamplePoints(actualPoints, 120),
       },
       scenarios: [],
-      summary: 'No filled orders yet — nothing to replay.',
+      summary: "No filled orders yet — nothing to replay.",
     });
   }
 
@@ -192,9 +188,10 @@ export async function getWhatIf(
     scenarios: result.scenarios,
     summary: result.summary,
     honesty: {
-      fill_model: 'market fills at historical touch-side quote + 5bps slippage; limit fills at the limit price',
-      lookahead: 'none — every replay decision uses only data available at that timestamp',
-      leverage: 'leverage caps are not enforced in replay (counterfactuals, not tradable)',
+      fill_model:
+        "market fills at historical touch-side quote + 5bps slippage; limit fills at the limit price",
+      lookahead: "none — every replay decision uses only data available at that timestamp",
+      leverage: "leverage caps are not enforced in replay (counterfactuals, not tradable)",
     },
   });
 }
