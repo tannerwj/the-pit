@@ -43,6 +43,35 @@ import { handleMcp } from './routes/mcp';
 const SEASON_ACTIONS = ['open', 'close', 'settle'] as const;
 const LEAGUE_SEASON_ACTIONS = ['open', 'close', 'settle'] as const;
 
+// Baseline security headers applied to every HTTP response.
+const SECURITY_HEADERS: Record<string, string> = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+};
+
+// Rebuild the response with the baseline headers merged in. Never clone a
+// response after its body has been transferred — construct a new one instead.
+function withSecurityHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    headers.set(name, value);
+  }
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers,
+  });
+}
+
+async function fetchWithSecurityHeaders(
+  req: Request,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  return withSecurityHeaders(await fetch(req, env, ctx));
+}
+
 async function fetch(
   req: Request,
   env: Env,
@@ -259,4 +288,4 @@ async function scheduled(
   }
 }
 
-export default { fetch, scheduled };
+export default { fetch: fetchWithSecurityHeaders, scheduled };
