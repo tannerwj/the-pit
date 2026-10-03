@@ -1993,7 +1993,7 @@ ${
 <tbody id="simRows"></tbody></table></div>
 <div class="simactions">
 <button class="btn sm" id="simAdd" type="button">+ Add trade</button>
-<button class="btn sm ghost" id="simExample" type="button" title="The June BTC crash — 4 annotated trades on real history">\U0001f3ac Load guided example</button>
+<button class="btn sm ghost" id="simExample" type="button" title="The June BTC crash — 4 annotated trades on real history">🎬 Load guided example</button>
 <button class="btn" id="simRun" type="button">Run simulation</button>
 <span class="muted" id="simCount"></span>
 </div>
