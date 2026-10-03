@@ -1,0 +1,31 @@
+name: e2e
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 9 * * *' # daily production check
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npx e2e run --reporter list,junit
+        env:
+          E2E_TELEMETRY_DISABLED: '1'
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            .e2e/report.json
+            .e2e/junit.xml
+          if-no-files-found: warn

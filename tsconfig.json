@@ -1,1 +1,23 @@
-{"compilerOptions":{"lib":["ES2022","WebWorker"],"module":"ESNext","moduleResolution":"Bundler","noEmit":true,"outDir":"dist","skipLibCheck":true,"strict":true,"target":"ES2022","types":["@cloudflare/workers-types"]},"include":["src/**/*","tests/**/*"]}
+{
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "WebWorker"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": [
+      "@cloudflare/workers-types"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "e2e.config.ts"
+  ]
+}
