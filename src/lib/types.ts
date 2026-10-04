@@ -10,6 +10,8 @@ export type EntryStatus = "active" | "liquidated" | "closed" | "banned";
 export interface Env {
   DB: D1Database;
   ADMIN_SECRET: string; // worker secret; never logged
+  /** Sentry error-reporting DSN (`wrangler secret put SENTRY_DSN`). Absent → Sentry disabled (local dev). */
+  SENTRY_DSN?: string;
 }
 
 export interface Quote {

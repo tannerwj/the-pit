@@ -3,6 +3,23 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 workers_dev = true
 
+upload_source_maps = true
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+head_sampling_rate = 1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.1
+
+[observability.issues]
+enabled = true
+
 # D1 database for The Pit (paper trading; all money virtual)
 [[d1_databases]]
 binding = "DB"

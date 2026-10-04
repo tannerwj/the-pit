@@ -1,5 +1,7 @@
 // The Pit v0.1 — worker entrypoint: fetch router + cron scheduler.
+import * as Sentry from "@sentry/cloudflare";
 import type { Env } from "./lib/types";
+import { reportCronError } from "./lib/sentry";
 import { err, requireAdmin } from "./lib/auth";
 import { registerAgent } from "./routes/agents";
 import { listSeasons, enterSeason } from "./routes/seasons";
@@ -102,6 +104,21 @@ async function fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
   if (method === "GET" && path === "/agents") return agentsPage();
   if (method === "GET" && path === "/simulate") return simulatePage(env);
+
+  // Liveness probe for external monitoring: D1 connectivity check.
+  if (method === "GET" && path === "/healthz") {
+    let db = "down";
+    try {
+      const r = await env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
+      db = r?.ok === 1 ? "ok" : "down";
+    } catch {
+      db = "down";
+    }
+    return new Response(JSON.stringify({ status: db === "ok" ? "ok" : "degraded", db }), {
+      status: db === "ok" ? 200 : 503,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+    });
+  }
 
   // MCP (Model Context Protocol) — Streamable HTTP, JSON-RPC 2.0.
   if (path === "/mcp") return handleMcp(req, env, ctx);
@@ -253,14 +270,36 @@ async function fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
 }
 
 // Crons (Track C): routed on event.cron, dynamically imported per contract.
+// Caught failures go through reportCronError so they reach Sentry instead of
+// failing silently — the every-minute ingest and 5-minute snapshots otherwise
+// have no alerting surface.
 async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
   const { handleQuoteIngest, handleSnapshots, handleSeasonTransitions } = await import("./crons");
   if (event.cron === "*/1 * * * *") {
-    await handleQuoteIngest(env, ctx);
-    await handleSeasonTransitions(env);
+    try {
+      await handleQuoteIngest(env, ctx);
+      await handleSeasonTransitions(env);
+    } catch (e) {
+      reportCronError(event.cron, e);
+    }
   } else if (event.cron === "*/5 * * * *") {
-    await handleSnapshots(env, ctx);
+    try {
+      await handleSnapshots(env, ctx);
+    } catch (e) {
+      reportCronError(event.cron, e);
+    }
   }
 }
 
-export default { fetch: fetchWithSecurityHeaders, scheduled };
+export default Sentry.withSentry(
+  // Sentry only initializes when a DSN is configured; local dev without the
+  // secret runs exactly as before. Error reporting only — no performance tracing.
+  (env: Env) =>
+    env.SENTRY_DSN
+      ? { dsn: env.SENTRY_DSN, environment: "production", tracesSampleRate: 0 }
+      : undefined,
+  {
+    fetch: fetchWithSecurityHeaders,
+    scheduled,
+  },
+);
