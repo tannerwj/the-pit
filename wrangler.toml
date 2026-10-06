@@ -3,9 +3,15 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 workers_dev = true
 
-# Custom domain (workers.dev URLs return error 1042 on worker-to-worker
+# Custom domains (workers.dev URLs return error 1042 on worker-to-worker
 # subrequests, which breaks Constellation's feedback aggregation).
-routes = [{ pattern = "pit.tannerwj.dev/*", zone_name = "tannerwj.dev" }]
+# NOTE: keep BOTH routes listed — wrangler deletes any zone route for this
+# worker that isn't in this list on deploy (dropped pit.tannerwj.com on
+# 2026-10-06, causing a 522 outage on the public domain).
+routes = [
+  { pattern = "pit.tannerwj.com/*", zone_name = "tannerwj.com" },
+  { pattern = "pit.tannerwj.dev/*", zone_name = "tannerwj.dev" },
+]
 
 upload_source_maps = true
 
