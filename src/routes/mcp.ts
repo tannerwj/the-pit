@@ -25,6 +25,7 @@ import { getLeaderboard } from "./leaderboard";
 import { listLeagues, getLeague, createLeague } from "./leagues";
 import { setWebhook, getWebhook, deleteWebhook } from "./webhooks";
 import { postBacktest } from "./backtest";
+import { submitFeedback, listFeedback } from "./feedback";
 
 export const MCP_PROTOCOL_VERSION = "2024-11-05";
 export const MCP_SERVER_VERSION = "0.1.0";
@@ -400,13 +401,125 @@ function backtestTools(): Record<string, ToolDef> {
   };
 }
 
+/** Feedback tools (thin wrappers over the REST handlers). */
+function feedbackTools(): Record<string, ToolDef> {
+  return {
+    feedback_submit: {
+      description:
+        "File feedback about this app — a bug you ran into, a feature request, praise, or a question. It goes to the app owner's inbox; use it whenever something is broken, missing, or worth suggesting. Prefer filing over staying silent.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          api_key: { type: "string", description: "Your agent API key from register_agent." },
+          type: {
+            type: "string",
+            enum: ["bug", "feature", "praise", "question"],
+            description: "What kind of feedback this is.",
+          },
+          title: {
+            type: "string",
+            description: "Short summary, max 200 characters.",
+          },
+          body: {
+            type: "string",
+            description: "Details, repro steps, max 4000 characters. Optional.",
+          },
+          reporter: {
+            type: "string",
+            description: "Your display name. Defaults to your agent name. Optional.",
+          },
+          context: {
+            type: "object",
+            description: "Free-form: what you were doing when you filed this. Optional.",
+          },
+        },
+        required: ["api_key", "type", "title"],
+      },
+      call: async (env, args) => {
+        const apiKey = reqApiKey(args);
+        const type = reqString(args, "type");
+        if (!["bug", "feature", "praise", "question"].includes(type)) {
+          throw new InvalidParams('"type" must be one of bug, feature, praise, question');
+        }
+        const title = reqString(args, "title");
+        const body: Record<string, unknown> = { type, title };
+        const optBody = optString(args, "body");
+        if (optBody !== undefined) body["body"] = optBody;
+        const reporter = optString(args, "reporter");
+        if (reporter !== undefined) body["reporter"] = reporter;
+        const context = args["context"];
+        if (context !== undefined && context !== null) body["context"] = context;
+        return asToolResult(
+          await submitFeedback(apiRequest("POST", "/api/v1/feedback", apiKey, body), env),
+        );
+      },
+    },
+
+    feedback_list: {
+      description: "List feedback filed about this app.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          status: {
+            type: "string",
+            enum: ["new", "ack", "planned", "done", "declined"],
+            description: "Filter by status. Omit for all.",
+          },
+          type: {
+            type: "string",
+            enum: ["bug", "feature", "praise", "question"],
+            description: "Filter by type. Omit for all.",
+          },
+          limit: {
+            type: "integer",
+            description: "Max items to return, 1-200. Default 50.",
+          },
+        },
+      },
+      call: async (env, args) => {
+        const qs = new URLSearchParams();
+        const status = optString(args, "status");
+        if (status !== undefined) {
+          if (!["new", "ack", "planned", "done", "declined"].includes(status)) {
+            throw new InvalidParams('"status" must be one of new, ack, planned, done, declined');
+          }
+          qs.set("status", status);
+        }
+        const type = optString(args, "type");
+        if (type !== undefined) {
+          if (!["bug", "feature", "praise", "question"].includes(type)) {
+            throw new InvalidParams('"type" must be one of bug, feature, praise, question');
+          }
+          qs.set("type", type);
+        }
+        const limitRaw = args["limit"];
+        if (limitRaw !== undefined) {
+          if (typeof limitRaw !== "number" || !Number.isInteger(limitRaw) || limitRaw < 1) {
+            throw new InvalidParams('"limit" must be an integer >= 1');
+          }
+          qs.set("limit", String(Math.min(limitRaw, 200)));
+        }
+        const query = qs.toString();
+        return asToolResult(
+          await listFeedback(apiRequest("GET", `/api/feedback${query ? `?${query}` : ""}`), env),
+        );
+      },
+    },
+  };
+}
+
 /**
  * Full tool table. ctx is threaded into fill-producing tools so webhook
  * deliveries get the waitUntil fast path; without it, deliveries fall back
  * to the 1-minute outbox cron.
  */
 function makeTools(ctx?: ExecutionContext): Record<string, ToolDef> {
-  const tools: Record<string, ToolDef> = { ...TOOLS_BASE, ...webhookTools(), ...backtestTools() };
+  const tools: Record<string, ToolDef> = {
+    ...TOOLS_BASE,
+    ...webhookTools(),
+    ...backtestTools(),
+    ...feedbackTools(),
+  };
   if (ctx) {
     const po = tools["place_order"];
     const co = tools["cancel_order"];

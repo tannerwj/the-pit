@@ -43,6 +43,7 @@ import {
   simulatePage,
 } from "./pages";
 import { llmsTxt, openApiJson, apiCatalog, mcpServerJson } from "./docs";
+import { submitFeedback, listFeedback } from "./routes/feedback";
 import { handleMcp } from "./routes/mcp";
 
 const SEASON_ACTIONS = ["open", "close", "settle"] as const;
@@ -122,6 +123,11 @@ async function fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
 
   // MCP (Model Context Protocol) — Streamable HTTP, JSON-RPC 2.0.
   if (path === "/mcp") return handleMcp(req, env, ctx);
+
+  // Per-app feedback (FEEDBACK_STANDARD.md): public read for Constellation aggregation.
+  if (method === "GET" && path === "/api/feedback") {
+    return listFeedback(req, env);
+  }
 
   if (path === "/api/v1" || path.startsWith("/api/v1/")) {
     const seg = path.slice("/api/v1".length).split("/").filter(Boolean);
@@ -226,6 +232,9 @@ async function fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
     }
     if (method === "GET" && seg.length === 1 && seg[0] === "portfolio") {
       return getPortfolio(req, env);
+    }
+    if (method === "POST" && seg.length === 1 && seg[0] === "feedback") {
+      return submitFeedback(req, env);
     }
     if (method === "GET" && seg.length === 1 && seg[0] === "leaderboard") {
       return getLeaderboard(req, env);

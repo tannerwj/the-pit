@@ -56,7 +56,7 @@ describe("server.json payload", () => {
     // Tools array mirrors the live MCP toolset — derived, not duplicated.
     expect(Array.isArray(body.tools)).toBe(true);
     expect(body.tools.map((t: any) => t.name).sort()).toEqual([...MCP_TOOL_NAMES].sort());
-    expect(body.tools).toHaveLength(16);
+    expect(body.tools).toHaveLength(MCP_TOOL_NAMES.length);
     for (const t of body.tools) {
       expect(typeof t.name).toBe("string");
       expect(typeof t.description).toBe("string");
