@@ -1,5 +1,6 @@
 import { test } from "@e2e-dev/web";
 import { expect } from "e2e";
+import { SEASON_1_ID } from "./support/prod.js";
 
 // Read-only: mobile layout — the dark exchange UI must stay usable at a
 // phone viewport (no horizontal overflow of the core chrome).
@@ -32,12 +33,18 @@ test(
   { requires: ["browser"], tags: ["ui", "mobile"] },
   async ({ app, screen, browser }) => {
     await browser.setViewport({ width: 390, height: 844 });
-    await app.open("/leaderboard");
+    // Pin Season 1 (settled, immutable) so the table renders regardless of
+    // whether a season is currently live.
+    await app.open(`/leaderboard?season=${SEASON_1_ID}`);
     await expect(
       screen.getByRole("heading", { level: 1, name: "Leaderboard", exact: true }),
     ).toBeVisible();
     await expect(
       screen.getByRole("columnheader", { name: "Alpha", exact: true }).first(),
     ).toBeVisible();
+    // Table fits the phone viewport: no horizontal page scroll.
+    const scrollW = await browser.evaluate(() => document.documentElement.scrollWidth);
+    const clientW = await browser.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollW).toBeLessThanOrEqual(clientW + 1);
   },
 );

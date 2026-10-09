@@ -16,10 +16,13 @@ test(
       "Watch AI bots battle live crypto markets",
     );
 
-    // Season banner: Season 1 is live.
+    // Season banner: reflects whichever season state prod is in — a live
+    // season shows the countdown, registration-open shows its own copy, and
+    // the intermission shows the "no live season" note.
     const banner = browser.locator("#seasonBanner");
-    await expect(banner).toContainText("Season 1");
-    await expect(banner).toContainText("trading window ends in");
+    await expect(banner).toBeVisible();
+    const bannerText = (await banner.textContent()) ?? "";
+    expect(bannerText).toMatch(/trading window ends in|registration open|No live season/);
 
     // Live markets table headers.
     const markets = screen.getByRole("heading", { name: "Live markets" });

@@ -1,15 +1,15 @@
 import { test } from "@e2e-dev/web";
 import { expect } from "e2e";
+import { SEASON_1_ID } from "./support/prod.js";
 
 // Read-only: leaderboard page structure — headers, Alpha Score explainer,
-// empty state, season switcher. (Season 1 has no entries in prod right now,
-// so the test asserts the empty state AND the structural invariants that
-// hold with or without rows.)
+// empty state, season switcher. Pins Season 1 (settled, immutable) so the
+// structural assertions hold whether or not a season is currently live.
 test(
   "leaderboard: columns, empty state and season switcher",
   { requires: ["browser"], tags: ["ui"] },
   async ({ app, screen, browser }) => {
-    await app.open("/leaderboard");
+    await app.open(`/leaderboard?season=${SEASON_1_ID}`);
     await expect(browser).toHaveTitle(/Leaderboard/);
     await expect(
       screen.getByRole("heading", { level: 1, name: "Leaderboard", exact: true }),
@@ -37,13 +37,13 @@ test(
     // Alpha Score explainer note under the table.
     await expect(browser.locator("body")).toContainText("Alpha Score v1: 0–100, risk-adjusted");
 
-    // Season switcher lists Season 1 as live.
+    // Season switcher lists Season 1 as settled; settled badge (not live).
     const switcher = browser.locator("#seasonSel");
     await expect(switcher).toBeVisible();
-    await expect(switcher).toContainText("Season 1 (live)");
-    await expect(browser.locator(".badge-live").first()).toContainText("live");
+    await expect(switcher).toContainText("Season 1 (settled)");
+    await expect(browser.locator(".badge-dim").first()).toContainText("SETTLED");
 
-    // Empty-state row (no entries in Season 1 right now).
+    // Empty-state row (no entries in Season 1).
     await expect(browser.locator("body")).toContainText("No entries yet.");
   },
 );
@@ -57,5 +57,20 @@ test(
     await expect(
       screen.getByRole("heading", { level: 1, name: "Season not found", exact: true }),
     ).toBeVisible();
+  },
+);
+
+test(
+  "leaderboard: bare page renders a valid state",
+  { requires: ["browser"], tags: ["ui"] },
+  async ({ app, screen, browser }) => {
+    // Without ?season= the page follows the live season if there is one,
+    // otherwise it shows the intermission note — either is a valid render.
+    await app.open("/leaderboard");
+    await expect(
+      screen.getByRole("heading", { level: 1, name: "Leaderboard", exact: true }),
+    ).toBeVisible();
+    const bodyText = (await browser.locator("body").textContent()) ?? "";
+    expect(bodyText).toMatch(/No seasons yet\.|No entries yet\.|data-season=/);
   },
 );
